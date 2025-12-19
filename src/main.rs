@@ -1,58 +1,23 @@
 use minifb::{Key, Window, WindowOptions};
-use std::f32::INFINITY;
-use std::sync::{Arc, Mutex};
-use std::thread;
 use tobj::{self};
 
-mod sphere;
-mod triangle;
-mod camera;
-mod colour;
-mod common;
-mod hittable;
-mod hittable_list;
-mod ray;
-mod vec3;
-mod material;
+use wgpu::{Instance, InstanceDescriptor};
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use bytemuck;
 
-use camera::Camera;
-use colour::Colour;
-use hittable::{HitRecord, Hittable};
-use hittable_list::HittableList;
-use ray::Ray;
-use vec3::Point3;
-use material::{Lambertian, Metal};
-use sphere::Sphere;
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct Params {
+    width: u32,
+    height: u32,
+    _pad1: u32,
+    _pad2: u32,
+}
 
 const WIDTH: usize = 400;
 const HEIGHT: usize = 225;
-const SAMPLES_PER_PIXEL: i32 = 1;
-const MAX_DEPTH: i32 = 2;
- 
-fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
-    // If we've exceeded the ray bounce limit, no more light is gathered
-    if depth <= 0 {
-        return Colour::new(0.0, 0.0, 0.0);
-    }
-    let mut rec = HitRecord::new();
-    if world.hit(r, 0.001, INFINITY, &mut rec) {
-        let mut attenuation = Colour::default();
-        let mut scattered = Ray::default();
-        if rec
-            .mat
-            .as_ref()
-            .unwrap()
-            .scatter(r, &rec, &mut attenuation, &mut scattered)
-        {
-            return attenuation * ray_color(&scattered, world, depth - 1);
-        }
-        return Colour::new(0.0, 0.0, 0.0);
-    }
-
-    let unit_direction = vec3::unit_vector(r.direction());
-    let t = 0.5 * (unit_direction.y() + 1.0);
-    (1.0 - t) * Colour::new(1.0, 1.0, 1.0) + t * Colour::new(0.5, 0.7, 1.0)
-}
+// const SAMPLES_PER_PIXEL: usize = 1;
+// const MAX_DEPTH: i32 = 2;
 
 fn read_obj_vertices(filename: &str) -> Vec<u8> {
 
@@ -103,27 +68,135 @@ fn main() {
 
     let v = read_obj_vertices("suzanne.obj");
 
-    // Create a shared buffer for the pixel data
-    let buffer = Arc::new(Mutex::new(vec![0u32; WIDTH * HEIGHT]));
+    let instance = Instance::new(&InstanceDescriptor {
+        ..Default::default()
+    });
 
- 
-    let mut world = HittableList::new();
-    
-    let _ = Arc::new(Lambertian::new(Colour::new(0.8, 0.8, 0.0)));
-    let material_right = Arc::new(Metal::new(Colour::new(0.8, 0.6, 0.2), 1.0));
- 
-    world.add(Box::new(Sphere::new(
-        Point3::new(0.0, -100.5, -1.0),
-        100.0,
-        material_right,
-    )));
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        force_fallback_adapter: false,
+        compatible_surface: None,
+    }));
 
-    let world = Arc::new(world);
-    // Camera
- 
-    let cam = Arc::new(Camera::new());
+    let adapter = match adapter {
+        Ok(a) => {
+            println!("Adapter found: {:?}", a.get_info().name);
+            a
+        }
+        Err(_) => {
+            println!(
+                "ERROR: No GPU adapter found. WebGPU may not be supported in this browser."
+            );
+            return;
+        }
+    };
 
-    // Create the window
+
+    let (device, queue) = match pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())) {
+        Ok(a) => a,
+        Err(e) => {
+            println!("{e}");
+            return;
+        }
+    };
+
+    let input_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        label: Some("Input Buffer"),
+        contents: &v,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::VERTEX,
+    });
+
+    let params = Params {
+        width: WIDTH as u32,
+        height: HEIGHT as u32,
+        _pad1: 0,
+        _pad2: 0
+    };
+
+    let params_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        label: Some("Input Buffer"),
+        contents: bytemuck::bytes_of(&params),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+    });
+
+    let output_size = (WIDTH * HEIGHT) * std::mem::size_of::<u32>();
+
+    // output buffer in gpu memory
+    let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Output Buffer"),
+        size: output_size as u64,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+
+    // read the output into cpu memory
+    let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Staging Buffer"),
+        size: output_size as u64,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Tracing Shader"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("trace.wgsl").into()),
+    });
+
+    let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("Compute Pipeline"),
+        layout: None,
+        module: &shader,
+        entry_point: Some("main"),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None
+    });
+
+    let bind_group_layout = compute_pipeline.get_bind_group_layout(0);
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: output_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: params_buffer.as_entire_binding(),
+            },
+        ],
+        label: Some("Bind Group"),
+    });
+
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("Compute Encoder"),
+    });
+
+    {
+        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Compute Pass"),
+            timestamp_writes: None,
+        });
+        cpass.set_pipeline(&compute_pipeline);
+        cpass.set_bind_group(0, &bind_group, &[]);
+
+        cpass.dispatch_workgroups(((WIDTH + 7) / 8).try_into().unwrap(), ((HEIGHT + 7) / 8).try_into().unwrap(), 1); // example workgroup
+    }
+
+    encoder.copy_buffer_to_buffer(&output_buffer, 0, &staging_buffer, 0, Some(output_size as u64));
+
+    queue.submit(Some(encoder.finish()));
+
+    let buffer_slice = staging_buffer.slice(..);
+    buffer_slice.map_async(wgpu::MapMode::Read, |_| {});
+    device.poll(wgpu::PollType::wait_indefinitely()).expect("hello");
+
+    let data = buffer_slice.get_mapped_range();
+    let result: &[u32] = bytemuck::cast_slice(&data);
+
     let mut window = Window::new(
         "Rustracer",
         WIDTH,
@@ -134,62 +207,10 @@ fn main() {
         panic!("{}", e);
     });
 
-    // Number of worker threads (reasonable number, not one per pixel/row)
-    let num_threads = 8;
-    let rows_per_thread = HEIGHT / num_threads;
-
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        let mut handles = vec![];
 
-        // Spawn worker threads
-        for thread_id in 0..num_threads {
-            let buffer = Arc::clone(&buffer);
-            let world = Arc::clone(&world);
-            let cam = Arc::clone(&cam);
-            let start_row = thread_id * rows_per_thread;
-            let end_row = if thread_id == num_threads - 1 {
-                HEIGHT
-            } else {
-                (thread_id + 1) * rows_per_thread
-            };
+        window.update_with_buffer(&result, WIDTH, HEIGHT).unwrap();
 
-            let handle = thread::spawn(move || {
-                let mut buffer = buffer.lock().unwrap();
-
-                for i in start_row..end_row {
-                    for j in 0..WIDTH {
-                        let index = (HEIGHT - i - 1) * WIDTH + j;
-
-                        let mut pixel_color = Colour::new(0.0, 0.0, 0.0);
-
-                        for _ in 0..SAMPLES_PER_PIXEL {
-                            let u = (j as f32 + common::random_double()) / (WIDTH - 1) as f32;
-                            let v = (i as f32 + common::random_double()) / (HEIGHT - 1) as f32;
-                            let r = cam.get_ray(u, v);
-                            pixel_color += ray_color(&r, &*world, MAX_DEPTH);
-                        }
-
-                        let scale = 1.0 / SAMPLES_PER_PIXEL as f32;
-
-                        pixel_color *= scale;
-                        pixel_color.sqrt_each();
-                        
-                        // Pack RGB into u32 (minifb format: 0x00RRGGBB)
-                        buffer[index] = pixel_color.to_u32();
-                    }
-                }
-            });
-
-            handles.push(handle);
-        }
-
-        // Wait for all threads to complete
-        for handle in handles {
-            handle.join().unwrap();
-        }
-
-        // Update the window with the buffer
-        let buffer = buffer.lock().unwrap();
-        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
+
 }
