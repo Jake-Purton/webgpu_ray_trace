@@ -120,45 +120,54 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
     return hr;
 }
 
-fn ray_color(r: Ray, depth: u32) -> vec3<f32> {
-    // If we've exceeded the ray bounce limit, no more light is gathered
+fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
+    var color = vec3<f32>(1.0, 1.0, 1.0); // accumulated color
+    var ray = r_in;
+    var depth = max_depth;
 
-    if depth <= 0 {
-        return vec3(0.0, 0.0, 0.0);
-    }
-
-    var hr: HitRecord = HitRecord(
-        0.0,
-        vec3<f32>(0.0, 0.0, 0.0),
-        vec3<f32>(0.0, 0.0, 0.0),
-        false
-    );
-
-    for (var i = 0u; i < arrayLength(&input); i = i + 1u) {
-
-        let triangle = input[i];
-
-        let hit2 = hit_triangle(r, 0.001, triangle);
-
-        if hit2.t < hr.t {
-            hr = hit2;
+    loop {
+        if depth == 0u {
+            break;
         }
 
-    }
+        var hr: HitRecord = HitRecord(
+            1e30, // large initial t
+            vec3<f32>(0.0, 0.0, 0.0),
+            vec3<f32>(0.0, 0.0, 0.0),
+            false
+        );
 
-    if hr.did_hit {
+        // Find nearest hit
+        for (var i = 0u; i < arrayLength(&input); i = i + 1u) {
+            let triangle = input[i];
+            let hit2 = hit_triangle(ray, 0.001, triangle);
 
+            if hit2.t < hr.t {
+                hr = hit2;
+            }
+        }
+
+        if !hr.did_hit {
+            // Background color
+            let unit_direction = normalize(ray.direction);
+            let t = 0.5 * (unit_direction.y + 1.0);
+            let background = (1.0 - t) * vec3<f32>(1.0, 1.0, 1.0) + t * vec3<f32>(0.5, 0.7, 1.0);
+
+            color = color * background;
+            break;
+        }
+
+        // Scatter and accumulate attenuation
+        let attenuation = vec3<f32>(0.8, 0.8, 0.0);
         let scattered_ray = scatter(hr);
-        let attenuation = vec3(0.8, 0.8, 0.0);
 
-        return attenuation * ray_color(scattered_ray, depth - 1);
+        color = color * attenuation;
+        ray = scattered_ray;
 
+        depth = depth - 1u;
     }
 
-    let unit_direction = normalize(r.direction);
-    let t = 0.5 * (unit_direction.y + 1.0);
-    return (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
-
+    return color;
 }
 
 fn scatter(
