@@ -122,17 +122,58 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
 
 fn ray_color(r: Ray, depth: u32) -> vec3<f32> {
     // If we've exceeded the ray bounce limit, no more light is gathered
+
     if depth <= 0 {
         return vec3(0.0, 0.0, 0.0);
     }
 
-    // let hit_record = hit(r, 0.001, INFINITY);
+    var hr: HitRecord = HitRecord(
+        0.0,
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        false
+    );
 
+    for (var i = 0u; i < arrayLength(&input); i = i + 1u) {
 
-    // else
+        let triangle = input[i];
+
+        let hit2 = hit_triangle(r, 0.001, triangle);
+
+        if hit2.t < hr.t {
+            hr = hit2;
+        }
+
+    }
+
+    if hr.did_hit {
+
+        let scattered_ray = scatter(hr);
+        let attenuation = vec3(0.8, 0.8, 0.0);
+
+        return attenuation * ray_color(scattered_ray, depth - 1);
+
+    }
 
     let unit_direction = normalize(r.direction);
     let t = 0.5 * (unit_direction.y + 1.0);
     return (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
 
 }
+
+fn scatter(
+    rec: HitRecord,
+) -> Ray {
+
+    let normal = normalize(rec.face_normal);
+    var scatter_direction = normal + random_unit_vector();
+    if scatter_direction.x < 1.0e-8 && scatter_direction.y < 1.0e-8 && scatter_direction.z < 1.0e-8 {
+        scatter_direction = normal;
+    }
+    return Ray(rec.point, scatter_direction);
+}
+
+fn random_unit_vector() -> vec3<f32> {
+    return vec3(0.0, 0.0, 0.0);
+}
+
