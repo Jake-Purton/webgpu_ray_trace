@@ -2,6 +2,7 @@ use minifb::{Key, Window, WindowOptions};
 use std::f32::INFINITY;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use tobj::{self};
 
 mod sphere;
 mod triangle;
@@ -22,9 +23,6 @@ use ray::Ray;
 use vec3::Point3;
 use material::{Lambertian, Metal};
 use sphere::Sphere;
-
-use crate::triangle::Triangle;
-
 
 const WIDTH: usize = 400;
 const HEIGHT: usize = 225;
@@ -56,38 +54,54 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     (1.0 - t) * Colour::new(1.0, 1.0, 1.0) + t * Colour::new(0.5, 0.7, 1.0)
 }
 
-use std::fs::File;
-use std::io::{BufRead, BufReader};
+fn read_obj_vertices(filename: &str) -> Vec<u8> {
 
-fn read_obj_vertices(filename: &str) -> std::io::Result<Vec<[f32; 3]>> {
-    let file = File::open(filename)?;
-    let reader = BufReader::new(file);
+    let (models, _) = tobj::load_obj(
+        filename,
+        &tobj::LoadOptions {
+            triangulate: true,
+            single_index: true,
+            ..Default::default()
+        },
+    ).unwrap();
+    
+    let mut triangles: Vec<u8> = Vec::new();
+    let suzanne_offset = -1.5;
 
-    let mut vertices = Vec::new();
+    
+    for model in models {
+        let mesh = &model.mesh;
+        let positions = &mesh.positions;
+        let indices = &mesh.indices;
 
-    for line in reader.lines() {
-        let line = line?;
-        let line = line.trim();
+        for i in (0..indices.len()).step_by(3) {
+            let i0 = indices[i] as usize * 3;
+            let i1 = indices[i + 1] as usize * 3;
+            let i2 = indices[i + 2] as usize * 3;
 
-        // OBJ vertex position lines start with "v "
-        if line.starts_with("v ") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 4 {
-                let x: f32 = parts[1].parse().unwrap();
-                let y: f32 = parts[2].parse().unwrap();
-                let z: f32 = parts[3].parse().unwrap();
+            // f32s to bytes little endian
 
-                vertices.push([x, y, z]);
-            }
+            // this all represents 1 triangle
+            triangles.extend_from_slice(&positions[i0].to_le_bytes());
+            triangles.extend_from_slice(&positions[i0 + 1].to_le_bytes());
+            triangles.extend_from_slice(&(positions[i0 + 2] + suzanne_offset).to_le_bytes());
+
+            triangles.extend_from_slice(&positions[i1].to_le_bytes());
+            triangles.extend_from_slice(&positions[i1 + 1].to_le_bytes());
+            triangles.extend_from_slice(&(positions[i1 + 2] + suzanne_offset).to_le_bytes());
+
+            triangles.extend_from_slice(&positions[i2].to_le_bytes());
+            triangles.extend_from_slice(&positions[i2 + 1].to_le_bytes());
+            triangles.extend_from_slice(&(positions[i2 + 2] + suzanne_offset).to_le_bytes());
         }
     }
 
-    Ok(vertices)
+    triangles
 }
 
 fn main() {
 
-    let v = read_obj_vertices("suzanne.obj").unwrap();
+    let v = read_obj_vertices("suzanne.obj");
 
     // Create a shared buffer for the pixel data
     let buffer = Arc::new(Mutex::new(vec![0u32; WIDTH * HEIGHT]));
@@ -95,9 +109,7 @@ fn main() {
  
     let mut world = HittableList::new();
     
-    let material_ground = Arc::new(Lambertian::new(Colour::new(0.8, 0.8, 0.0)));
-    // let material_center = Arc::new(Lambertian::new(Colour::new(0.7, 0.3, 0.3)));
-    // let material_left = Arc::new(Metal::new(Colour::new(0.8, 0.8, 0.8), 0.3));
+    let _ = Arc::new(Lambertian::new(Colour::new(0.8, 0.8, 0.0)));
     let material_right = Arc::new(Metal::new(Colour::new(0.8, 0.6, 0.2), 1.0));
  
     world.add(Box::new(Sphere::new(
@@ -105,17 +117,6 @@ fn main() {
         100.0,
         material_right,
     )));
-
-    let suzanne_offset = -1.5; // Move her in front of the camera
-
-    for i in 0..v.len() / 3 {
-        world.add(Box::new(Triangle::new(
-        Point3::new(v[ i ][0], v[ i ][1], v[ i ][2] + suzanne_offset),
-        Point3::new(v[i+1][0], v[i+1][1], v[i+1][2] + suzanne_offset),
-        Point3::new(v[i+2][0], v[i+2][1], v[i+2][2] + suzanne_offset),
-        material_ground.clone(),
-    )));
-    }
 
     let world = Arc::new(world);
     // Camera
