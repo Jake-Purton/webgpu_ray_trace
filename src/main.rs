@@ -1,4 +1,5 @@
 use minifb::{Key, Window, WindowOptions};
+use std::f32::INFINITY;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -27,7 +28,7 @@ use crate::triangle::Triangle;
 
 const WIDTH: usize = 400;
 const HEIGHT: usize = 225;
-const SAMPLES_PER_PIXEL: i32 = 2;
+const SAMPLES_PER_PIXEL: i32 = 1;
 const MAX_DEPTH: i32 = 2;
  
 fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
@@ -36,7 +37,7 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
         return Colour::new(0.0, 0.0, 0.0);
     }
     let mut rec = HitRecord::new();
-    if world.hit(r, 0.001, common::INFINITY, &mut rec) {
+    if world.hit(r, 0.001, INFINITY, &mut rec) {
         let mut attenuation = Colour::default();
         let mut scattered = Ray::default();
         if rec
@@ -58,7 +59,7 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-fn read_obj_vertices(filename: &str) -> std::io::Result<Vec<[f64; 3]>> {
+fn read_obj_vertices(filename: &str) -> std::io::Result<Vec<[f32; 3]>> {
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
 
@@ -72,9 +73,9 @@ fn read_obj_vertices(filename: &str) -> std::io::Result<Vec<[f64; 3]>> {
         if line.starts_with("v ") {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 4 {
-                let x: f64 = parts[1].parse().unwrap();
-                let y: f64 = parts[2].parse().unwrap();
-                let z: f64 = parts[3].parse().unwrap();
+                let x: f32 = parts[1].parse().unwrap();
+                let y: f32 = parts[2].parse().unwrap();
+                let z: f32 = parts[3].parse().unwrap();
 
                 vertices.push([x, y, z]);
             }
@@ -104,21 +105,6 @@ fn main() {
         100.0,
         material_right,
     )));
-    // world.add(Box::new(Sphere::new(
-    //     Point3::new(0.0, 0.0, -1.0),
-    //     0.5,
-    //     material_center,
-    // )));
-    // world.add(Box::new(Sphere::new(
-    //     Point3::new(-1.0, 0.0, -1.0),
-    //     0.5,
-    //     material_left,
-    // )));
-    // world.add(Box::new(Sphere::new(
-    //     Point3::new(1.0, 0.0, -1.0),
-    //     0.5,
-    //     material_right.clone(),
-    // )));
 
     let suzanne_offset = -1.5; // Move her in front of the camera
 
@@ -131,12 +117,6 @@ fn main() {
     )));
     }
 
-    // world.add(Box::new(Triangle::new(
-    //     Point3::new(-0.5, 0.5, -2.0),
-    //     Point3::new(0.5, 0.5, -2.0),
-    //     Point3::new(0.0, -0.5, -2.0),
-    //     material_ground,
-    // )));
     let world = Arc::new(world);
     // Camera
  
@@ -182,13 +162,13 @@ fn main() {
                         let mut pixel_color = Colour::new(0.0, 0.0, 0.0);
 
                         for _ in 0..SAMPLES_PER_PIXEL {
-                            let u = (j as f64 + common::random_double()) / (WIDTH - 1) as f64;
-                            let v = (i as f64 + common::random_double()) / (HEIGHT - 1) as f64;
+                            let u = (j as f32 + common::random_double()) / (WIDTH - 1) as f32;
+                            let v = (i as f32 + common::random_double()) / (HEIGHT - 1) as f32;
                             let r = cam.get_ray(u, v);
                             pixel_color += ray_color(&r, &*world, MAX_DEPTH);
                         }
 
-                        let scale = 1.0 / SAMPLES_PER_PIXEL as f64;
+                        let scale = 1.0 / SAMPLES_PER_PIXEL as f32;
 
                         pixel_color *= scale;
                         pixel_color.sqrt_each();

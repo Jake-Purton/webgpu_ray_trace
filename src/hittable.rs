@@ -8,7 +8,7 @@ use crate::material::Material;
 pub struct HitRecord {
     pub p: Point3,
     pub normal: Vec3,
-    pub t: f64,
+    pub t: f32,
     pub front_face: bool,
     pub mat: Option<Arc<dyn Material + Send + Sync>>,
 }
@@ -29,5 +29,5 @@ impl HitRecord {
 }
  
 pub trait Hittable: Send + Sync {
-    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64, rec: &mut HitRecord) -> bool;
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool;
 }

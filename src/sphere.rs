@@ -7,12 +7,12 @@ use crate::vec3::{self, Point3};
 
 pub struct Sphere {
     pub center: Point3,
-    pub radius: f64,
+    pub radius: f32,
     pub mat: Arc<dyn Material + Send + Sync>,
 }
 
 impl Sphere {
-    pub fn new(cen: Point3, r: f64, m: Arc<dyn Material + Send + Sync>) -> Sphere {
+    pub fn new(cen: Point3, r: f32, m: Arc<dyn Material + Send + Sync>) -> Sphere {
         Sphere {
             center: cen,
             radius: r,
@@ -22,7 +22,7 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, r: &Ray, t_min: f64, t_max: f64, rec: &mut HitRecord) -> bool {
+    fn hit(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
         let oc = r.origin() - self.center;
         let a = r.direction().length_squared();
         let half_b = vec3::dot(oc, r.direction());
@@ -32,7 +32,7 @@ impl Hittable for Sphere {
             return false;
         }
 
-        let sqrt_d = f64::sqrt(discriminant);
+        let sqrt_d = f32::sqrt(discriminant);
 
         // Find the nearest root that lies in the acceptable range
         let mut root = (-half_b - sqrt_d) / a;

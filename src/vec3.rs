@@ -6,23 +6,23 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
  
 #[derive(Copy, Clone, Default)]
 pub struct Vec3 {
-    e: [f64; 3],
+    e: [f32; 3],
 }
  
 impl Vec3 {
-    pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
+    pub fn new(x: f32, y: f32, z: f32) -> Vec3 {
         Vec3 { e: [x, y, z] }
     }
  
-    pub fn x(&self) -> f64 {
+    pub fn x(&self) -> f32 {
         self.e[0]
     }
  
-    pub fn y(&self) -> f64 {
+    pub fn y(&self) -> f32 {
         self.e[1]
     }
  
-    pub fn z(&self) -> f64 {
+    pub fn z(&self) -> f32 {
         self.e[2]
     }
 
@@ -34,7 +34,7 @@ impl Vec3 {
         )
     }
  
-    pub fn random_range(min: f64, max: f64) -> Vec3 {
+    pub fn random_range(min: f32, max: f32) -> Vec3 {
         Vec3::new(
             common::random_double_range(min, max),
             common::random_double_range(min, max),
@@ -42,11 +42,11 @@ impl Vec3 {
         )
     }
  
-    pub fn length(&self) -> f64 {
-        f64::sqrt(self.length_squared())
+    pub fn length(&self) -> f32 {
+        f32::sqrt(self.length_squared())
     }
  
-    pub fn length_squared(&self) -> f64 {
+    pub fn length_squared(&self) -> f32 {
         self.e[0] * self.e[0] + self.e[1] * self.e[1] + self.e[2] * self.e[2]
     }
 
@@ -63,7 +63,7 @@ impl Vec3 {
         self.e[2] = self.e[2].sqrt();
     }
     pub fn near_zero(&self) -> bool {
-        const EPS: f64 = 1.0e-8;
+        const EPS: f32 = 1.0e-8;
         // Return true if the vector is close to zero in all dimensions
         self.e[0].abs() < EPS && self.e[1].abs() < EPS && self.e[2].abs() < EPS
     }
@@ -96,16 +96,16 @@ impl AddAssign for Vec3 {
     }
 }
 
-// Vec3 *= f64
-impl MulAssign<f64> for Vec3 {
-    fn mul_assign(&mut self, t: f64) {
+// Vec3 *= f32
+impl MulAssign<f32> for Vec3 {
+    fn mul_assign(&mut self, t: f32) {
         *self = *self * t;
     }
 }
 
-// Vec3 /= f64
-impl DivAssign<f64> for Vec3 {
-    fn div_assign(&mut self, t: f64) {
+// Vec3 /= f32
+impl DivAssign<f32> for Vec3 {
+    fn div_assign(&mut self, t: f32) {
         *self = *self / t;
     }
 }
@@ -137,8 +137,8 @@ impl Mul for Vec3 {
     }
 }
 
-// f64 * Vec3
-impl Mul<Vec3> for f64 {
+// f32 * Vec3
+impl Mul<Vec3> for f32 {
     type Output = Vec3;
     
     fn mul(self, v: Vec3) -> Vec3 {
@@ -146,25 +146,25 @@ impl Mul<Vec3> for f64 {
     }
 }
 
-// Vec3 * f64
-impl Mul<f64> for Vec3 {
+// Vec3 * f32
+impl Mul<f32> for Vec3 {
     type Output = Vec3;
     
-    fn mul(self, t: f64) -> Vec3 {
+    fn mul(self, t: f32) -> Vec3 {
         Vec3::new(self.x() * t, self.y() * t, self.z() * t)
     }
 }
 
-// Vec3 / f64
-impl Div<f64> for Vec3 {
+// Vec3 / f32
+impl Div<f32> for Vec3 {
     type Output = Vec3;
     
-    fn div(self, t: f64) -> Vec3 {
+    fn div(self, t: f32) -> Vec3 {
         Vec3::new(self.x() / t, self.y() / t, self.z() / t)
     }
 }
 
-pub fn dot(u: Vec3, v: Vec3) -> f64 {
+pub fn dot(u: Vec3, v: Vec3) -> f32 {
     u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2]
 }
 

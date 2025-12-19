@@ -44,11 +44,11 @@ impl Material for Lambertian {
 
 pub struct Metal {
     albedo: Colour,
-    fuzz: f64,
+    fuzz: f32,
 }
  
 impl Metal {
-    pub fn new(a: Colour, f: f64) -> Metal {
+    pub fn new(a: Colour, f: f32) -> Metal {
         Metal {
             albedo: a,
             fuzz: if f < 1.0 { f } else { 1.0 },

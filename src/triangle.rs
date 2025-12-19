@@ -24,7 +24,7 @@ impl Triangle {
 }
 
 impl Hittable for Triangle {
-    fn hit(&self, r: &Ray, t_min: f64, t_max: f64, rec: &mut HitRecord) -> bool {
+    fn hit(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
         // Möller–Trumbore intersection algorithm
         let epsilon = 1e-8;
         let edge1 = self.b - self.a;
