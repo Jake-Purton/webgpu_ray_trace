@@ -2,6 +2,7 @@ use minifb::{Key, Window, WindowOptions};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+mod sphere;
 mod triangle;
 mod camera;
 mod colour;
@@ -19,13 +20,14 @@ use hittable_list::HittableList;
 use ray::Ray;
 use vec3::Point3;
 use material::{Lambertian, Metal};
+use sphere::Sphere;
 
 use crate::triangle::Triangle;
 
 
 const WIDTH: usize = 400;
 const HEIGHT: usize = 225;
-const SAMPLES_PER_PIXEL: i32 = 1;
+const SAMPLES_PER_PIXEL: i32 = 2;
 const MAX_DEPTH: i32 = 2;
  
 fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
@@ -53,7 +55,39 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     (1.0 - t) * Colour::new(1.0, 1.0, 1.0) + t * Colour::new(0.5, 0.7, 1.0)
 }
 
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+
+fn read_obj_vertices(filename: &str) -> std::io::Result<Vec<[f64; 3]>> {
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+
+    let mut vertices = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // OBJ vertex position lines start with "v "
+        if line.starts_with("v ") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 4 {
+                let x: f64 = parts[1].parse().unwrap();
+                let y: f64 = parts[2].parse().unwrap();
+                let z: f64 = parts[3].parse().unwrap();
+
+                vertices.push([x, y, z]);
+            }
+        }
+    }
+
+    Ok(vertices)
+}
+
 fn main() {
+
+    let v = read_obj_vertices("suzanne.obj").unwrap();
+
     // Create a shared buffer for the pixel data
     let buffer = Arc::new(Mutex::new(vec![0u32; WIDTH * HEIGHT]));
 
@@ -61,15 +95,15 @@ fn main() {
     let mut world = HittableList::new();
     
     let material_ground = Arc::new(Lambertian::new(Colour::new(0.8, 0.8, 0.0)));
-    let material_center = Arc::new(Lambertian::new(Colour::new(0.7, 0.3, 0.3)));
-    let material_left = Arc::new(Metal::new(Colour::new(0.8, 0.8, 0.8), 0.3));
+    // let material_center = Arc::new(Lambertian::new(Colour::new(0.7, 0.3, 0.3)));
+    // let material_left = Arc::new(Metal::new(Colour::new(0.8, 0.8, 0.8), 0.3));
     let material_right = Arc::new(Metal::new(Colour::new(0.8, 0.6, 0.2), 1.0));
  
-    // world.add(Box::new(Sphere::new(
-    //     Point3::new(0.0, -100.5, -1.0),
-    //     100.0,
-    //     material_ground,
-    // )));
+    world.add(Box::new(Sphere::new(
+        Point3::new(0.0, -100.5, -1.0),
+        100.0,
+        material_right,
+    )));
     // world.add(Box::new(Sphere::new(
     //     Point3::new(0.0, 0.0, -1.0),
     //     0.5,
@@ -85,12 +119,24 @@ fn main() {
     //     0.5,
     //     material_right.clone(),
     // )));
-    world.add(Box::new(Triangle::new(
-        Point3::new(-0.5, 0.5, -2.0),
-        Point3::new(0.5, 0.5, -2.0),
-        Point3::new(0.0, -0.5, -2.0),
-        material_ground,
+
+    let suzanne_offset = -1.5; // Move her in front of the camera
+
+    for i in 0..v.len() / 3 {
+        world.add(Box::new(Triangle::new(
+        Point3::new(v[ i ][0], v[ i ][1], v[ i ][2] + suzanne_offset),
+        Point3::new(v[i+1][0], v[i+1][1], v[i+1][2] + suzanne_offset),
+        Point3::new(v[i+2][0], v[i+2][1], v[i+2][2] + suzanne_offset),
+        material_ground.clone(),
     )));
+    }
+
+    // world.add(Box::new(Triangle::new(
+    //     Point3::new(-0.5, 0.5, -2.0),
+    //     Point3::new(0.5, 0.5, -2.0),
+    //     Point3::new(0.0, -0.5, -2.0),
+    //     material_ground,
+    // )));
     let world = Arc::new(world);
     // Camera
  
