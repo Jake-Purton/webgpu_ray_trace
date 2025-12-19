@@ -2,13 +2,13 @@ use minifb::{Key, Window, WindowOptions};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+mod triangle;
 mod camera;
 mod colour;
 mod common;
 mod hittable;
 mod hittable_list;
 mod ray;
-mod sphere;
 mod vec3;
 mod material;
 
@@ -17,15 +17,16 @@ use colour::Colour;
 use hittable::{HitRecord, Hittable};
 use hittable_list::HittableList;
 use ray::Ray;
-use sphere::Sphere;
 use vec3::Point3;
 use material::{Lambertian, Metal};
+
+use crate::triangle::Triangle;
 
 
 const WIDTH: usize = 400;
 const HEIGHT: usize = 225;
-const SAMPLES_PER_PIXEL: i32 = 5;
-const MAX_DEPTH: i32 = 3;
+const SAMPLES_PER_PIXEL: i32 = 1;
+const MAX_DEPTH: i32 = 2;
  
 fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     // If we've exceeded the ray bounce limit, no more light is gathered
@@ -64,25 +65,31 @@ fn main() {
     let material_left = Arc::new(Metal::new(Colour::new(0.8, 0.8, 0.8), 0.3));
     let material_right = Arc::new(Metal::new(Colour::new(0.8, 0.6, 0.2), 1.0));
  
-    world.add(Box::new(Sphere::new(
-        Point3::new(0.0, -100.5, -1.0),
-        100.0,
+    // world.add(Box::new(Sphere::new(
+    //     Point3::new(0.0, -100.5, -1.0),
+    //     100.0,
+    //     material_ground,
+    // )));
+    // world.add(Box::new(Sphere::new(
+    //     Point3::new(0.0, 0.0, -1.0),
+    //     0.5,
+    //     material_center,
+    // )));
+    // world.add(Box::new(Sphere::new(
+    //     Point3::new(-1.0, 0.0, -1.0),
+    //     0.5,
+    //     material_left,
+    // )));
+    // world.add(Box::new(Sphere::new(
+    //     Point3::new(1.0, 0.0, -1.0),
+    //     0.5,
+    //     material_right.clone(),
+    // )));
+    world.add(Box::new(Triangle::new(
+        Point3::new(-0.5, 0.5, -2.0),
+        Point3::new(0.5, 0.5, -2.0),
+        Point3::new(0.0, -0.5, -2.0),
         material_ground,
-    )));
-    world.add(Box::new(Sphere::new(
-        Point3::new(0.0, 0.0, -1.0),
-        0.5,
-        material_center,
-    )));
-    world.add(Box::new(Sphere::new(
-        Point3::new(-1.0, 0.0, -1.0),
-        0.5,
-        material_left,
-    )));
-    world.add(Box::new(Sphere::new(
-        Point3::new(1.0, 0.0, -1.0),
-        0.5,
-        material_right,
     )));
     let world = Arc::new(world);
     // Camera
