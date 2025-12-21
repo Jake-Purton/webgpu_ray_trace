@@ -31,8 +31,8 @@ struct HitRecord {
 }
 
 struct Ray {
-    direction: vec3<f32>,
-    origin: vec3<f32>
+    origin: vec3<f32>,
+    direction: vec3<f32>
 }
 
 @group(0) @binding(2)
@@ -60,11 +60,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let fx = f32(x) / f32(params.width - 1u);
     let fy = f32(y) / f32(params.height - 1u);
 
-    let ray = get_ray(params.camera, fx, fy);
+    // let ray = get_ray(params.camera, fx, fy);
+
+    let ray = Ray(vec3(0, 0, 0), vec3(0, 0, -1));
 
     let c = ray_color_iter(ray, 2);
 
-    // Simple gradient
     var r: u32 = u32(c.x * 255.0);
     let g: u32 = u32(c.y * 255.0);
     let b: u32 = u32(c.z * 255.0);
@@ -72,9 +73,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Pack as 0x00RRGGBB
 
     // first triangle is correct
-    if (params.camera.lower_left_corner.z == -1.0) {
-        r = 255;
-    }
+    // if (params.camera.vertical.y == 2.0) {
+    //     r = 255;
+    // }
     output[index] = (r << 16u) | (g << 8u) | b;
 }
 
@@ -156,6 +157,10 @@ fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
         for (var i = 0u; i < arrayLength(&input); i = i + 1u) {
             let triangle = input[i];
             let hit2 = hit_triangle(ray, 0.001, triangle);
+
+            if (hit2.did_hit) {
+                return vec3(1.0, 1.0, 1.0);
+            }
 
             if hit2.t < hr.t {
                 hr = hit2;

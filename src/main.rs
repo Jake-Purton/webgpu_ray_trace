@@ -65,20 +65,6 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     // pad
     triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
 
-    // triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-    // triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-    // triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
-    // // 
-
-    // triangles.extend_from_slice(&1.0_f32.to_le_bytes());
-    // triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-    // triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
-
-    // triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-    // triangles.extend_from_slice(&1.0_f32.to_le_bytes());
-    // triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
-
-
     return triangles;
 
     // ENDOFDELETETHIS
@@ -99,6 +85,7 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
             triangles.extend_from_slice(&positions[i0].to_le_bytes());
             triangles.extend_from_slice(&positions[i0 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i0 + 2] + suzanne_offset).to_le_bytes());
+            triangles.extend_from_slice(&64.0_f32.to_le_bytes());
 
             triangles.extend_from_slice(&positions[i1].to_le_bytes());
             triangles.extend_from_slice(&positions[i1 + 1].to_le_bytes());
