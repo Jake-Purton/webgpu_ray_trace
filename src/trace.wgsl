@@ -4,6 +4,13 @@ struct Triangle {
     c: vec3<f32>,
 }
 
+struct Camera {
+    origin: vec3<f32>,
+    lower_left_corner: vec3<f32>,
+    horizontal: vec3<f32>,
+    vertical: vec3<f32>,
+}
+
 @group(0) @binding(0)
 var<storage, read> input: array<Triangle>;
 
@@ -13,8 +20,7 @@ var<storage, read_write> output: array<u32>;
 struct Params {
     width: u32,
     height: u32,
-    _pad1: u32,
-    _pad2: u32,
+    camera: Camera,
 };
 
 struct HitRecord {
@@ -54,12 +60,21 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let fx = f32(x) / f32(params.width - 1u);
     let fy = f32(y) / f32(params.height - 1u);
 
+    let ray = get_ray(params.camera, fx, fy);
+
+    let c = ray_color_iter(ray, 2);
+
     // Simple gradient
-    let r: u32 = u32(fx * 255.0);
-    let g: u32 = u32(fy * 255.0);
-    let b: u32 = 128u;
+    var r: u32 = u32(c.x * 255.0);
+    let g: u32 = u32(c.y * 255.0);
+    let b: u32 = u32(c.z * 255.0);
 
     // Pack as 0x00RRGGBB
+
+    // first triangle is correct
+    if (params.camera.lower_left_corner.z == -1.0) {
+        r = 255;
+    }
     output[index] = (r << 16u) | (g << 8u) | b;
 }
 
@@ -121,7 +136,7 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
 }
 
 fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
-    var color = vec3<f32>(1.0, 1.0, 1.0); // accumulated color
+    var color = vec3<f32>(0.0, 0.0, 0.0); // accumulated color
     var ray = r_in;
     var depth = max_depth;
 
@@ -158,6 +173,8 @@ fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
         }
 
         // Scatter and accumulate attenuation
+
+
         let attenuation = vec3<f32>(0.8, 0.8, 0.0);
         let scattered_ray = scatter(hr);
 
@@ -186,3 +203,9 @@ fn random_unit_vector() -> vec3<f32> {
     return vec3(0.0, 0.0, 0.0);
 }
 
+fn get_ray(c: Camera, u: f32, v: f32) -> Ray {
+    return Ray(
+        c.origin,
+        c.lower_left_corner + u * c.horizontal + v * c.vertical - c.origin,
+    );
+}

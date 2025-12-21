@@ -1,3 +1,6 @@
+mod camera;
+
+use camera::Camera;
 use minifb::{Key, Window, WindowOptions};
 use tobj::{self};
 
@@ -12,6 +15,11 @@ struct Params {
     height: u32,
     _pad1: u32,
     _pad2: u32,
+    camera: Camera,
+    _pad3: u32,
+    _pad4: u32,
+    _pad5: u32,
+    _pad6: u32,
 }
 
 const WIDTH: usize = 400;
@@ -33,6 +41,47 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     let mut triangles: Vec<u8> = Vec::new();
     let suzanne_offset = -1.5;
 
+
+    // THE TRIANGLES NEED PADDING OF 32 bits each 
+    // thats fine
+
+    // DELETE THIS
+    triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&(-3.0_f32).to_le_bytes());
+    // pad
+    triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
+
+    triangles.extend_from_slice(&1.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&(-3.0_f32).to_le_bytes());
+    // pad
+    triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
+
+
+    triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&1.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&(-3.0_f32).to_le_bytes());
+    // pad
+    triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
+
+    // triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    // triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    // triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
+    // // 
+
+    // triangles.extend_from_slice(&1.0_f32.to_le_bytes());
+    // triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    // triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
+
+    // triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    // triangles.extend_from_slice(&1.0_f32.to_le_bytes());
+    // triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
+
+
+    return triangles;
+
+    // ENDOFDELETETHIS
     
     for model in models {
         let mesh = &model.mesh;
@@ -109,12 +158,17 @@ fn main() {
     let params = Params {
         width: WIDTH as u32,
         height: HEIGHT as u32,
+        camera: Camera::new(),
         _pad1: 0,
-        _pad2: 0
+        _pad2: 0,
+        _pad3: 0,
+        _pad4: 0,
+        _pad5: 0,
+        _pad6: 0,
     };
 
     let params_buffer = device.create_buffer_init(&BufferInitDescriptor {
-        label: Some("Input Buffer"),
+        label: Some("Params Buffer"),
         contents: bytemuck::bytes_of(&params),
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
