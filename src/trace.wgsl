@@ -58,11 +58,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // Normalized coordinates [0, 1]
     let fx = f32(x) / f32(params.width - 1u);
-    let fy = f32(y) / f32(params.height - 1u);
+    let fy = f32(params.height - 1u - y) / f32(params.height - 1u);
 
-    // let ray = get_ray(params.camera, fx, fy);
+    let ray = get_ray(params.camera, fx, fy);
 
-    let ray = Ray(vec3(0, 0, 0), vec3(0, 0, -1));
+    // let ray = Ray(vec3(0, 0, 0), vec3(0, 0, -1));
 
     let c = ray_color_iter(ray, 2);
 
