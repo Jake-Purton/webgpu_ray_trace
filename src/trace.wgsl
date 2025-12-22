@@ -1,7 +1,7 @@
 struct Triangle {
-    a: vec3<f32>,
-    b: vec3<f32>,
-    c: vec3<f32>,
+    a: vec4<f32>,
+    b: vec4<f32>,
+    c: vec4<f32>,
 }
 
 struct Camera {
@@ -25,13 +25,13 @@ struct Params {
     samples: u32,
     pad3: u32,
     pad4: u32,
-
 };
 
 struct HitRecord {
     t: f32,
     point: vec3<f32>,
     face_normal: vec3<f32>,
+    color: vec3<f32>,
     did_hit: bool,
 }
 
@@ -101,35 +101,36 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
         0.0,
         vec3<f32>(0.0, 0.0, 0.0),
         vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
         false
     );
 
     let epsilon = 1e-8;
     let edge1 = triangle.b - triangle.a;
     let edge2 = triangle.c - triangle.a;
-    let h = cross(r.direction, edge2);
-    let a = dot(edge1, h);
+    let h = cross(r.direction, edge2.xyz);
+    let a = dot(edge1.xyz, h);
 
     if abs(a) < epsilon {
         return hr;
     }
 
     let f = 1.0 / a;
-    let s = r.origin - triangle.a;
+    let s = r.origin - triangle.a.xyz;
     let u = f * dot(s, h);
 
     if u < 0.0 || u > 1.0 {
         return hr;
     }
 
-    let q = cross(s, edge1);
+    let q = cross(s, edge1.xyz);
     let v = f * dot(r.direction, q);
 
     if v < 0.0 || u + v > 1.0 {
         return hr;
     }
 
-    let t = f * dot(edge2, q);
+    let t = f * dot(edge2.xyz, q);
 
     // if t < t_min || t > t_max {
     if t < t_min {
@@ -139,7 +140,7 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
     hr.t = t;
     hr.point = (r.direction * t) + r.origin;
 
-    let outward_normal = normalize(cross(edge1, edge2));
+    let outward_normal = normalize(cross(edge1.xyz, edge2.xyz));
 
     if dot(r.direction, outward_normal) < 0.0 {
         hr.face_normal = outward_normal;
@@ -148,6 +149,7 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
     };
 
     hr.did_hit = true;
+    hr.color = vec3(triangle.a.w, triangle.b.w, triangle.c.w);
 
     return hr;
 }
@@ -164,6 +166,7 @@ fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
 
         var hr: HitRecord = HitRecord(
             1e30, // large initial t
+            vec3<f32>(0.0, 0.0, 0.0),
             vec3<f32>(0.0, 0.0, 0.0),
             vec3<f32>(0.0, 0.0, 0.0),
             false
@@ -196,7 +199,7 @@ fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
         // Scatter and accumulate attenuation
 
 
-        let attenuation = vec3<f32>(0.8, 0.3, 0.7);
+        let attenuation = hr.color;
         let scattered_ray = scatter(hr, depth);
 
         color = color * attenuation;

@@ -22,9 +22,9 @@ struct Params {
     _pad6: u32,
 }
 
-const WIDTH: usize = 400;
-const HEIGHT: usize = 225;
-const SAMPLES_PER_PIXEL: u32 = 1;
+const WIDTH: usize = 1080;
+const HEIGHT: usize = 720;
+const SAMPLES_PER_PIXEL: u32 = 10;
 const MAX_DEPTH: u32 = 10;
 
 fn read_obj_vertices(filename: &str) -> Vec<u8> {
@@ -50,20 +50,20 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     // pad
-    triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(0.0_f32).to_le_bytes());
 
     triangles.extend_from_slice(&4.0_f32.to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     // pad
-    triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(0.0_f32).to_le_bytes());
 
 
     triangles.extend_from_slice(&0.0_f32.to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-30.0_f32).to_le_bytes());
     // pad
-    triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(1.0_f32).to_le_bytes());
 
     // return triangles;
 
@@ -85,17 +85,17 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
             triangles.extend_from_slice(&positions[i0].to_le_bytes());
             triangles.extend_from_slice(&positions[i0 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i0 + 2] + suzanne_offset).to_le_bytes());
-            triangles.extend_from_slice(&64.0_f32.to_le_bytes());
+            triangles.extend_from_slice(&1.0_f32.to_le_bytes());
 
             triangles.extend_from_slice(&positions[i1].to_le_bytes());
             triangles.extend_from_slice(&positions[i1 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i1 + 2] + suzanne_offset).to_le_bytes());
-            triangles.extend_from_slice(&64.0_f32.to_le_bytes());
+            triangles.extend_from_slice(&0.0_f32.to_le_bytes());
 
             triangles.extend_from_slice(&positions[i2].to_le_bytes());
             triangles.extend_from_slice(&positions[i2 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i2 + 2] + suzanne_offset).to_le_bytes());
-            triangles.extend_from_slice(&64.0_f32.to_le_bytes());
+            triangles.extend_from_slice(&0.0_f32.to_le_bytes());
 
         }
     }
