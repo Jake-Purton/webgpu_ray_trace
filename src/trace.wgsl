@@ -21,6 +21,11 @@ struct Params {
     width: u32,
     height: u32,
     camera: Camera,
+    depth: u32,
+    samples: u32,
+    pad3: u32,
+    pad4: u32,
+
 };
 
 struct HitRecord {
@@ -64,7 +69,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // let ray = Ray(vec3(0, 0, 0), vec3(0, 0, -1));
 
-    let c = ray_color_iter(ray, 2);
+    var pixel_color = vec3(0.0, 0.0, 0.0);
+
+    for (var s: u32 = 0; s<params.samples; s++) {
+        let fx = (f32(x) + random_double(s, x)) / f32(params.width - 1u);
+        let fy = (f32(params.height - 1u - y) + random_double(s, y+1997)) / f32(params.height - 1u);
+        let ray = get_ray(params.camera, fx, fy);
+        pixel_color += ray_color_iter(ray, params.depth);
+    }
+
+    let scale = 1.0 / f32(params.samples);
+
+    let c = pixel_color * scale;
 
     var r: u32 = u32(c.x * 255.0);
     let g: u32 = u32(c.y * 255.0);
@@ -137,7 +153,7 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
 }
 
 fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
-    var color = vec3<f32>(0.0, 0.0, 0.0); // accumulated color
+    var color = vec3<f32>(1.0, 1.0, 1.0); // accumulated color
     var ray = r_in;
     var depth = max_depth;
 
@@ -158,11 +174,11 @@ fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
             let triangle = input[i];
             let hit2 = hit_triangle(ray, 0.001, triangle);
 
-            if (hit2.did_hit) {
-                return vec3(1.0, 1.0, 1.0);
-            }
+            // if (hit2.did_hit) {
+            //     return vec3(1.0, 1.0, 1.0);
+            // }
 
-            if hit2.t < hr.t {
+            if (!hr.did_hit) || (hit2.t < hr.t && hit2.did_hit){
                 hr = hit2;
             }
         }
@@ -180,8 +196,8 @@ fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
         // Scatter and accumulate attenuation
 
 
-        let attenuation = vec3<f32>(0.8, 0.8, 0.0);
-        let scattered_ray = scatter(hr);
+        let attenuation = vec3<f32>(0.8, 0.3, 0.7);
+        let scattered_ray = scatter(hr, depth);
 
         color = color * attenuation;
         ray = scattered_ray;
@@ -194,18 +210,37 @@ fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
 
 fn scatter(
     rec: HitRecord,
+    depth: u32,
 ) -> Ray {
 
     let normal = normalize(rec.face_normal);
-    var scatter_direction = normal + random_unit_vector();
+    var scatter_direction = normal + random_unit_vector(depth);
     if scatter_direction.x < 1.0e-8 && scatter_direction.y < 1.0e-8 && scatter_direction.z < 1.0e-8 {
         scatter_direction = normal;
     }
     return Ray(rec.point, scatter_direction);
 }
 
-fn random_unit_vector() -> vec3<f32> {
-    return vec3(0.0, 0.0, 0.0);
+fn random_unit_vector(depth: u32) -> vec3<f32> {
+
+    let a = hash_u32(depth);
+    let b = hash_u32(depth + a%3);
+    let c = hash_u32(depth + a%7);
+
+    let fa = f32(a);
+    let fb = f32(b);
+    let fc = f32(c);
+
+    return normalize(vec3(fa, fb, fc));
+}
+
+fn random_double(sample: u32, x:u32) -> f32 {
+
+    let a = hash_u32(sample+x);
+
+    let fa = f32(a);
+
+    return (fa)* (1.0 / 4294967296.0);
 }
 
 fn get_ray(c: Camera, u: f32, v: f32) -> Ray {
@@ -213,4 +248,13 @@ fn get_ray(c: Camera, u: f32, v: f32) -> Ray {
         c.origin,
         c.lower_left_corner + u * c.horizontal + v * c.vertical - c.origin,
     );
+}
+
+
+fn hash_u32(x: u32) -> u32 {
+    var v = x;
+    v = v * 747796405u + 2891336453u;
+    v = ((v >> ((v >> 28u) + 4u)) ^ v) * 277803737u;
+    v = (v >> 22u) ^ v;
+    return v;
 }

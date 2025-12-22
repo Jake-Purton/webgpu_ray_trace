@@ -16,16 +16,16 @@ struct Params {
     _pad1: u32,
     _pad2: u32,
     camera: Camera,
-    _pad3: u32,
-    _pad4: u32,
+    depth: u32,
+    samples: u32,
     _pad5: u32,
     _pad6: u32,
 }
 
 const WIDTH: usize = 400;
 const HEIGHT: usize = 225;
-// const SAMPLES_PER_PIXEL: usize = 1;
-// const MAX_DEPTH: i32 = 2;
+const SAMPLES_PER_PIXEL: u32 = 1;
+const MAX_DEPTH: u32 = 10;
 
 fn read_obj_vertices(filename: &str) -> Vec<u8> {
 
@@ -46,26 +46,26 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     // thats fine
 
     // DELETE THIS
-    triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-    triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-    triangles.extend_from_slice(&(-3.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     // pad
     triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
 
-    triangles.extend_from_slice(&2.0_f32.to_le_bytes());
-    triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-    triangles.extend_from_slice(&(-3.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&4.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     // pad
     triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
 
 
     triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-    triangles.extend_from_slice(&1.0_f32.to_le_bytes());
-    triangles.extend_from_slice(&(-3.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-30.0_f32).to_le_bytes());
     // pad
     triangles.extend_from_slice(&(64.0_f32).to_le_bytes());
 
-    return triangles;
+    // return triangles;
 
     // ENDOFDELETETHIS
     
@@ -90,10 +90,13 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
             triangles.extend_from_slice(&positions[i1].to_le_bytes());
             triangles.extend_from_slice(&positions[i1 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i1 + 2] + suzanne_offset).to_le_bytes());
+            triangles.extend_from_slice(&64.0_f32.to_le_bytes());
 
             triangles.extend_from_slice(&positions[i2].to_le_bytes());
             triangles.extend_from_slice(&positions[i2 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i2 + 2] + suzanne_offset).to_le_bytes());
+            triangles.extend_from_slice(&64.0_f32.to_le_bytes());
+
         }
     }
 
@@ -145,11 +148,11 @@ fn main() {
     let params = Params {
         width: WIDTH as u32,
         height: HEIGHT as u32,
-        camera: Camera::new(),
         _pad1: 0,
         _pad2: 0,
-        _pad3: 0,
-        _pad4: 0,
+        camera: Camera::new(),
+        depth: MAX_DEPTH,
+        samples: SAMPLES_PER_PIXEL,
         _pad5: 0,
         _pad6: 0,
     };
