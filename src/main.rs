@@ -39,7 +39,7 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     .unwrap();
 
     let mut triangles: Vec<u8> = Vec::new();
-    let suzanne_offset = -1.5;
+    let suzanne_offset = -2.5;
 
     // THE TRIANGLES NEED PADDING OF 32 bits each
     // thats fine
@@ -57,11 +57,32 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     // pad
     triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
 
-    triangles.extend_from_slice(&0.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
-    triangles.extend_from_slice(&(-30.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-6.0_f32).to_le_bytes());
     // pad
     triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
+
+    //triangle 2 really
+
+    triangles.extend_from_slice(&(4.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-6.0_f32).to_le_bytes());
+    // pad
+    triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
+
+    triangles.extend_from_slice(&4.0_f32.to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
+    // pad
+    triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
+
+    triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(-6.0_f32).to_le_bytes());
+    // pad
+    triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
+
 
     // return triangles;
 

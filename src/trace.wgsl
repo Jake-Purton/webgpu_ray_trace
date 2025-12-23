@@ -77,7 +77,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let fx = (f32(x) + random_double(seed)) / f32(params.width - 1u);
         let fy = (f32(params.height - 1u - y) + random_double(seed + 1)) / f32(params.height - 1u);
         let ray = get_ray(params.camera, fx, fy);
-        pixel_color += ray_color_iter(ray, params.depth);
+        pixel_color += ray_color_iter(ray, params.depth, seed);
     }
 
     let scale = 1.0 / f32(params.samples);
@@ -95,6 +95,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     //     r = 255;
     // }
     output[index] = (r << 16u) | (g << 8u) | b;
+    // output[index] = hash_u32(make_seed(x, y, 0u, 0u));
 }
 
 fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
@@ -156,7 +157,8 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
     return hr;
 }
 
-fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
+fn ray_color_iter(r_in: Ray, max_depth: u32, seed: u32) -> vec3<f32> {
+    var incoming_light = vec3<f32>(0.0, 0.0, 0.0);
     var color = vec3<f32>(1.0, 1.0, 1.0); // accumulated color
     var ray = r_in;
     var depth = max_depth;
@@ -166,75 +168,64 @@ fn ray_color_iter(r_in: Ray, max_depth: u32) -> vec3<f32> {
             break;
         }
 
-        var hr: HitRecord = HitRecord(
-            1e30, // large initial t
-            vec3<f32>(0.0, 0.0, 0.0),
-            vec3<f32>(0.0, 0.0, 0.0),
-            vec3<f32>(0.0, 0.0, 0.0),
-            false
-        );
+        let hr = calculate_collisions(ray);
 
-        // Find nearest hit
-        for (var i = 0u; i < arrayLength(&input); i = i + 1u) {
-            let triangle = input[i];
-            let hit2 = hit_triangle(ray, 0.001, triangle);
-
-            // if (hit2.did_hit) {
-            //     return vec3(1.0, 1.0, 1.0);
-            // }
-
-            if (!hr.did_hit) || (hit2.t < hr.t && hit2.did_hit){
-                hr = hit2;
-            }
-        }
-
-        if !hr.did_hit {
-            // Background color
-            let unit_direction = normalize(ray.direction);
-            let t = 0.5 * (unit_direction.y + 1.0);
-            let background = (1.0 - t) * vec3<f32>(1.0, 1.0, 1.0) + t * vec3<f32>(0.5, 0.7, 1.0);
-
-            color = color * background;
+        if hr.did_hit {
+            ray.origin = hr.point;
+            ray.direction = random_hemisphere_direction(hr.face_normal, seed+depth);
+            // hr.emmited_colour * hr.emmision_strength
+            // incoming_light += emitted_light * color;
+            color *= hr.color;
+        } else {
+            // background emitted color * emmission_strength
+            let e = vec3(1.0, 1.0, 1.0) * 0.5;
+            incoming_light += e * color;
             break;
         }
-
-        // Scatter and accumulate attenuation
-
-
-        let attenuation = hr.color;
-        let scattered_ray = scatter(hr, depth);
-
-        color = color * attenuation;
-        ray = scattered_ray;
 
         depth = depth - 1u;
     }
 
-    return color;
+    return incoming_light;
 }
 
-fn scatter(
-    rec: HitRecord,
-    depth: u32,
-) -> Ray {
+fn calculate_collisions(ray: Ray) -> HitRecord {
+    var hr: HitRecord = HitRecord(
+        1e30, // large initial t
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        false
+    );
 
-    let normal = normalize(rec.face_normal);
-    var scatter_direction = normal + random_unit_vector(depth);
-    if scatter_direction.x < 1.0e-8 && scatter_direction.y < 1.0e-8 && scatter_direction.z < 1.0e-8 {
-        scatter_direction = normal;
+    // Find nearest hit
+    for (var i = 0u; i < arrayLength(&input); i = i + 1u) {
+        let triangle = input[i];
+        let hit2 = hit_triangle(ray, 0.001, triangle);
+
+        if (!hr.did_hit) || (hit2.t < hr.t && hit2.did_hit){
+            hr = hit2;
+        }
     }
-    return Ray(rec.point, scatter_direction);
+
+    return hr;
 }
 
-fn random_unit_vector(seed: u32) -> vec3<f32> {
+fn random_hemisphere_direction(normal: vec3<f32>, seed: u32) -> vec3<f32> {
     let z = random_double(seed) * 2.0 - 1.0;
     let a = random_double(seed + 1u) * 6.28318530718;
     let r = sqrt(max(0.0, 1.0 - z * z));
-    return vec3<f32>(
-        r * cos(a),
+    let v = vec3<f32>(
+        r * cos(a), 
         r * sin(a),
         z
     );
+
+    if dot(v, normal) < 0 {
+        return -v;
+    } else {
+        return v;
+    }
 }
 
 fn random_double(seed:u32) -> f32 {
