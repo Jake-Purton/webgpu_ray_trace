@@ -24,8 +24,8 @@ struct Params {
 
 const WIDTH: usize = 1080;
 const HEIGHT: usize = 720;
-const SAMPLES_PER_PIXEL: u32 = 10;
-const MAX_DEPTH: u32 = 10;
+const SAMPLES_PER_PIXEL: u32 = 2;
+const MAX_DEPTH: u32 = 4;
 
 fn read_obj_vertices(filename: &str) -> Vec<u8> {
     let (models, _) = tobj::load_obj(
@@ -61,7 +61,7 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-6.0_f32).to_le_bytes());
     // pad
-    triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
+    triangles.extend_from_slice(&(1.0_f32).to_le_bytes());
 
     //triangle 2 really
 
@@ -81,7 +81,7 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-6.0_f32).to_le_bytes());
     // pad
-    triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
+    triangles.extend_from_slice(&(1.0_f32).to_le_bytes());
 
 
     // return triangles;
