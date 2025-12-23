@@ -72,8 +72,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var pixel_color = vec3(0.0, 0.0, 0.0);
 
     for (var s: u32 = 0; s<params.samples; s++) {
-        let fx = (f32(x) + random_double(s, x)) / f32(params.width - 1u);
-        let fy = (f32(params.height - 1u - y) + random_double(s, y+1997)) / f32(params.height - 1u);
+        let seed = make_seed(x, y, s, 0u);
+
+        let fx = (f32(x) + random_double(seed)) / f32(params.width - 1u);
+        let fy = (f32(params.height - 1u - y) + random_double(seed + 1)) / f32(params.height - 1u);
         let ray = get_ray(params.camera, fx, fy);
         pixel_color += ray_color_iter(ray, params.depth);
     }
@@ -224,22 +226,20 @@ fn scatter(
     return Ray(rec.point, scatter_direction);
 }
 
-fn random_unit_vector(depth: u32) -> vec3<f32> {
-
-    let a = hash_u32(depth);
-    let b = hash_u32(depth + a%3);
-    let c = hash_u32(depth + a%7);
-
-    let fa = f32(a);
-    let fb = f32(b);
-    let fc = f32(c);
-
-    return normalize(vec3(fa, fb, fc));
+fn random_unit_vector(seed: u32) -> vec3<f32> {
+    let z = random_double(seed) * 2.0 - 1.0;
+    let a = random_double(seed + 1u) * 6.28318530718;
+    let r = sqrt(max(0.0, 1.0 - z * z));
+    return vec3<f32>(
+        r * cos(a),
+        r * sin(a),
+        z
+    );
 }
 
-fn random_double(sample: u32, x:u32) -> f32 {
+fn random_double(seed:u32) -> f32 {
 
-    let a = hash_u32(sample+x);
+    let a = hash_u32(seed);
 
     let fa = f32(a);
 
@@ -254,10 +254,15 @@ fn get_ray(c: Camera, u: f32, v: f32) -> Ray {
 }
 
 
-fn hash_u32(x: u32) -> u32 {
-    var v = x;
+fn hash_u32(seed: u32) -> u32 {
+    var v = seed;
     v = v * 747796405u + 2891336453u;
     v = ((v >> ((v >> 28u) + 4u)) ^ v) * 277803737u;
     v = (v >> 22u) ^ v;
     return v;
+}
+
+fn make_seed(x: u32, y: u32, sample: u32, bounce: u32) -> u32 {
+    var s = x * 1973u + y * 9277u + sample * 26699u + bounce * 3181u;
+    return hash_u32(s);
 }

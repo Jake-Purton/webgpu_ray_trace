@@ -4,9 +4,9 @@ use camera::Camera;
 use minifb::{Key, Window, WindowOptions};
 use tobj::{self};
 
-use wgpu::{Instance, InstanceDescriptor};
-use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use bytemuck;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use wgpu::{Instance, InstanceDescriptor};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -28,7 +28,6 @@ const SAMPLES_PER_PIXEL: u32 = 10;
 const MAX_DEPTH: u32 = 10;
 
 fn read_obj_vertices(filename: &str) -> Vec<u8> {
-
     let (models, _) = tobj::load_obj(
         filename,
         &tobj::LoadOptions {
@@ -36,13 +35,13 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
             single_index: true,
             ..Default::default()
         },
-    ).unwrap();
-    
+    )
+    .unwrap();
+
     let mut triangles: Vec<u8> = Vec::new();
     let suzanne_offset = -1.5;
 
-
-    // THE TRIANGLES NEED PADDING OF 32 bits each 
+    // THE TRIANGLES NEED PADDING OF 32 bits each
     // thats fine
 
     // DELETE THIS
@@ -50,25 +49,24 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     // pad
-    triangles.extend_from_slice(&(0.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
 
     triangles.extend_from_slice(&4.0_f32.to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     // pad
-    triangles.extend_from_slice(&(0.0_f32).to_le_bytes());
-
+    triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
 
     triangles.extend_from_slice(&0.0_f32.to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-30.0_f32).to_le_bytes());
     // pad
-    triangles.extend_from_slice(&(1.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(0.2_f32).to_le_bytes());
 
     // return triangles;
 
     // ENDOFDELETETHIS
-    
+
     for model in models {
         let mesh = &model.mesh;
         let positions = &mesh.positions;
@@ -96,7 +94,6 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
             triangles.extend_from_slice(&positions[i2 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i2 + 2] + suzanne_offset).to_le_bytes());
             triangles.extend_from_slice(&0.0_f32.to_le_bytes());
-
         }
     }
 
@@ -104,7 +101,6 @@ fn read_obj_vertices(filename: &str) -> Vec<u8> {
 }
 
 fn main() {
-
     let v = read_obj_vertices("suzanne.obj");
 
     let instance = Instance::new(&InstanceDescriptor {
@@ -123,21 +119,19 @@ fn main() {
             a
         }
         Err(_) => {
-            println!(
-                "ERROR: No GPU adapter found. WebGPU may not be supported in this browser."
-            );
+            println!("ERROR: No GPU adapter found. WebGPU may not be supported in this browser.");
             return;
         }
     };
 
-
-    let (device, queue) = match pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())) {
-        Ok(a) => a,
-        Err(e) => {
-            println!("{e}");
-            return;
-        }
-    };
+    let (device, queue) =
+        match pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())) {
+            Ok(a) => a,
+            Err(e) => {
+                println!("{e}");
+                return;
+            }
+        };
 
     let input_buffer = device.create_buffer_init(&BufferInitDescriptor {
         label: Some("Input Buffer"),
@@ -192,7 +186,7 @@ fn main() {
         module: &shader,
         entry_point: Some("main"),
         compilation_options: wgpu::PipelineCompilationOptions::default(),
-        cache: None
+        cache: None,
     });
 
     let bind_group_layout = compute_pipeline.get_bind_group_layout(0);
@@ -227,34 +221,38 @@ fn main() {
         cpass.set_pipeline(&compute_pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);
 
-        cpass.dispatch_workgroups(((WIDTH + 7) / 8).try_into().unwrap(), ((HEIGHT + 7) / 8).try_into().unwrap(), 1); // example workgroup
+        cpass.dispatch_workgroups(
+            ((WIDTH + 7) / 8).try_into().unwrap(),
+            ((HEIGHT + 7) / 8).try_into().unwrap(),
+            1,
+        ); // example workgroup
     }
 
-    encoder.copy_buffer_to_buffer(&output_buffer, 0, &staging_buffer, 0, Some(output_size as u64));
+    encoder.copy_buffer_to_buffer(
+        &output_buffer,
+        0,
+        &staging_buffer,
+        0,
+        Some(output_size as u64),
+    );
 
     queue.submit(Some(encoder.finish()));
 
     let buffer_slice = staging_buffer.slice(..);
     buffer_slice.map_async(wgpu::MapMode::Read, |_| {});
-    device.poll(wgpu::PollType::wait_indefinitely()).expect("hello");
+    device
+        .poll(wgpu::PollType::wait_indefinitely())
+        .expect("hello");
 
     let data = buffer_slice.get_mapped_range();
     let result: &[u32] = bytemuck::cast_slice(&data);
 
-    let mut window = Window::new(
-        "Rustracer",
-        WIDTH,
-        HEIGHT,
-        WindowOptions::default(),
-    )
-    .unwrap_or_else(|e| {
-        panic!("{}", e);
-    });
+    let mut window = Window::new("Rustracer", WIDTH, HEIGHT, WindowOptions::default())
+        .unwrap_or_else(|e| {
+            panic!("{}", e);
+        });
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-
         window.update_with_buffer(&result, WIDTH, HEIGHT).unwrap();
-
     }
-
 }
