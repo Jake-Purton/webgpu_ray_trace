@@ -4,6 +4,13 @@ struct Triangle {
     c: vec4<f32>,
 }
 
+struct Material {
+    // colour of the surface when it reflects light
+    emmission: vec4<f32>, // first 3 f32s is the emmission colour, last is the coefficient (emmission strength)
+    albedo: vec4<f32>,
+    material_type: u32, // metallic or lambertian
+}
+
 struct Camera {
     origin: vec3<f32>,
     lower_left_corner: vec3<f32>,
@@ -16,6 +23,12 @@ var<storage, read> input: array<Triangle>;
 
 @group(0) @binding(1)
 var<storage, read_write> output: array<u32>;
+
+@group(0) @binding(2)
+var<uniform> params: Params;
+
+@group(0) @binding(3)
+var<storage, read> materials: array<Material>;
 
 struct Params {
     width: u32,
@@ -33,15 +46,14 @@ struct HitRecord {
     face_normal: vec3<f32>,
     color: vec3<f32>,
     did_hit: bool,
+    emmitted_colour: vec3<f32>,
+    emmitted_strength: f32,
 }
 
 struct Ray {
     origin: vec3<f32>,
     direction: vec3<f32>
 }
-
-@group(0) @binding(2)
-var<uniform> params: Params;
 
 // learnt that if you dont use the buffer in the code it wont be generate and you will get an error
 
@@ -67,8 +79,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let ray = get_ray(params.camera, fx, fy);
 
-    // let ray = Ray(vec3(0, 0, 0), vec3(0, 0, -1));
-
     var pixel_color = vec3(0.0, 0.0, 0.0);
 
     for (var s: u32 = 0; s<params.samples; s++) {
@@ -84,18 +94,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let c = pixel_color * scale;
 
-    var r: u32 = u32(c.x * 255.0);
+    let r: u32 = u32(c.x * 255.0);
     let g: u32 = u32(c.y * 255.0);
     let b: u32 = u32(c.z * 255.0);
+    
 
-    // Pack as 0x00RRGGBB
-
-    // first triangle is correct
-    // if (params.camera.vertical.y == 2.0) {
-    //     r = 255;
-    // }
     output[index] = (r << 16u) | (g << 8u) | b;
-    // output[index] = hash_u32(make_seed(x, y, 0u, 0u));
+
+    // output[index] = 
 }
 
 fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
@@ -105,7 +111,9 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
         vec3<f32>(0.0, 0.0, 0.0),
         vec3<f32>(0.0, 0.0, 0.0),
         vec3<f32>(0.0, 0.0, 0.0),
-        false
+        false,
+        vec3<f32>(0.0, 0.0, 0.0),
+        0.0
     );
 
     let epsilon = 1e-8;
@@ -152,7 +160,12 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
     };
 
     hr.did_hit = true;
-    hr.color = vec3(triangle.a.w, triangle.b.w, triangle.c.w);
+
+    let material = materials[u32(triangle.a.w)];
+
+    hr.color = material.albedo.xyz;
+    hr.emmitted_colour = material.emmission.xyz;
+    hr.emmitted_strength = material.emmission.w;
 
     return hr;
 }
@@ -173,12 +186,12 @@ fn ray_color_iter(r_in: Ray, max_depth: u32, seed: u32) -> vec3<f32> {
         if hr.did_hit {
             ray.origin = hr.point;
             ray.direction = random_hemisphere_direction(hr.face_normal, seed+depth);
-            // hr.emmited_colour * hr.emmision_strength
-            // incoming_light += emitted_light * color;
+            let emitted_light = hr.emmitted_colour * hr.emmitted_strength;
+            incoming_light += emitted_light * color;
             color *= hr.color;
         } else {
             // background emitted color * emmission_strength
-            let e = vec3(1.0, 1.0, 1.0) * 0.8;
+            let e = vec3(0.99, 0.99, 0.99) * 0.0;
             incoming_light += e * color;
             break;
         }
@@ -195,7 +208,9 @@ fn calculate_collisions(ray: Ray) -> HitRecord {
         vec3<f32>(0.0, 0.0, 0.0),
         vec3<f32>(0.0, 0.0, 0.0),
         vec3<f32>(0.0, 0.0, 0.0),
-        false
+        false,
+        vec3<f32>(0.0, 0.0, 0.0),
+        0.0
     );
 
     // Find nearest hit
