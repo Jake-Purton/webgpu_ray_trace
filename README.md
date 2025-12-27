@@ -2,13 +2,11 @@
 
 ## Introduction
 
-In this post, I’ll walk through my journey of extending the [Ray Tracing Road to Rust (RTRR)](https://the-ray-tracing-road-to-rust.vercel.app/6-surface-normals-and-multiple-objects) project. I’ll cover how I added triangle support, imported geometry from OBJ files, and started porting the project to WebGPU. My project used `minifb` whereas RTRR wrote out PPM image files. This is the only major difference.
-
----
+In this post, I’ll walk through my journey of extending the [Ray Tracing Road to Rust (RTRR)](https://the-ray-tracing-road-to-rust.vercel.app/6-surface-normals-and-multiple-objects) project. I’ll cover how I added triangle support, imported geometry from OBJ files, and started porting the project to WebGPU. If you havent yet done the RTRR then I recommend starting there. If you want to follow along with me without completing RTRR then clone [this repository]().
 
 ## Adding Triangles to the CPU Version
 
-RTRR is a fantastic project for beginners learning rust or ray tracing. It focuses mainly on spheres and I wanted to add triangles. The specific working commit is [here](https://github.com/Jake-Purton/webgpu_ray_trace/tree/b26dc46eb08a39acbcfbff3ad3bbe284c25d8d4d) in my repository. Please note that my obj file reading wasn't correct at the time but it was close enough to see some triangles.
+RTRR is a fantastic project for beginners learning rust or ray tracing. It focuses mainly on spheres and I wanted to add triangles. The specific working commit on the CPU is [here](https://github.com/Jake-Purton/webgpu_ray_trace/tree/b26dc46eb08a39acbcfbff3ad3bbe284c25d8d4d) in my repository. Please note that my obj file reading wasn't correct at the time but it was close enough to see some triangles.
 
 **The Triangle Struct**
 ```rust
@@ -93,7 +91,6 @@ This implements the tutorial's `Hittable` trait and can therefore be added to wo
     )));
 ```
 
----
 
 ## Reading Triangles from OBJ Files
 
@@ -130,15 +127,13 @@ for model in models {
 }
 ```
 
----
 
 ## Preparing for WebGPU
 
 Currently, with ray tracing running on the CPU the simulation is slow even on relatively high end hardware. We can get a huge boost in speed by sending our triangles to the GPU to have the simulation run in paralel there. This will involve sending our triangles in a buffer, implementing a ray tracing shader, and recieving the results as pixels in another buffer before displaying this to the screen.
 
----
 
-### Input and Output Buffers for Triangles
+### Input and Output Buffers
 
 Here is what the setup looks like for sending triangles to the GPU. In the loop where we read the triangles from the obj file before, we now populate a `Vec<u8>`. Our goal is to send 3 sets of 3 `f32`s, however because of how wgsl reads buffers we actually need 4 bytes of padding between each point in the triangle.
 
@@ -179,49 +174,134 @@ for model in models {
 }
 ```
 
----
-
-### Buffer Management Lessons
-
-- **Unused Buffers Are Removed:** I discovered that if a buffer isn’t used in a shader, it may be removed by the pipeline.
-- **Buffer Padding:** WebGPU expects data in a specific byte layout, so I had to pad triangle structs to match alignment requirements.
-
-**Code Example: Buffer Padding**
+The `Vec<u8>` is now in a suitable format. The buffer can be built in rust like so:
 ```rust
-// Show how you pad structs for GPU alignment here
+let input_buffer = device.create_buffer_init(&BufferInitDescriptor {
+    label: Some("Input Buffer"),
+    contents: &v,
+    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::VERTEX,
+});
+```
+and accessed on the GPU:
+```wgsl
+struct Triangle {
+    a: vec4<f32>,
+    b: vec4<f32>,
+    c: vec4<f32>,
+}
+
+@group(0) @binding(0)
+var<storage, read> input: array<Triangle>;
 ```
 
----
+You may see an error along the lines of:
+```
+wgpu error: Validation Error
+
+Caused by:
+  In Device::create_bind_group, label = 'Bind Group'
+    Number of bindings in bind group descriptor (4) does not match the number of bindings defined in the bind group layout (3)
+``` 
+and you are certain that you have added the correct bindings in your shader, double check that you are using them all. A bit of code like `let a = input[0]` will stop the binding from being removed in the optimisation stage and stop this error from occurring.
+
+An output buffer can be added with a `u32` (format `00RRBBGG`) for each pixel on the screen.
+```rust
+let output_size = (WIDTH * HEIGHT) * std::mem::size_of::<u32>();
+
+// output buffer in gpu memory
+let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+    label: Some("Output Buffer"),
+    size: output_size as u64,
+    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+    mapped_at_creation: false,
+});
+```
+
+and both of the buffers sent to the GPU:
+
+```rust
+let bind_group_layout = compute_pipeline.get_bind_group_layout(0);
+let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+    layout: &bind_group_layout,
+    entries: &[
+        wgpu::BindGroupEntry {
+            binding: 0,
+            resource: input_buffer.as_entire_binding(),
+        },
+        wgpu::BindGroupEntry {
+            binding: 1,
+            resource: output_buffer.as_entire_binding(),
+        },
+    ],
+    label: Some("Bind Group"),
+});
+```
+
+I then copy the output buffer into the window so that we can see it.
 
 ### Camera and Material Buffers
 
-I added a parameters buffer for the camera and a materials buffer. Material data is now stored in the triangle’s `a.w` field.
-
-**Code Example: Camera/Material Buffer**
+The camera works a similar way to how it does in the tutorial.
 ```rust
-// Show how you set up and use these buffers here
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Camera {
+    origin: [f32; 4],
+    lower_left_corner: [f32; 4],
+    horizontal: [f32; 4],
+    vertical: [f32; 4],
+}
+```
+The Vec3 data structure has been replaced with `[f32; 4]` so that thr padding works. This can be sent to the GPU in the parameters buffer which also describes:
+- screen width/height
+- number of samples per pixel
+- maximum depth
+
+Padding is included due to how the GPU deserialises the bytes.
+
+```rust
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct Params {
+    width: u32,
+    height: u32,
+    _pad1: u32,
+    _pad2: u32,
+    camera: Camera,
+    depth: u32,
+    samples: u32,
+    _pad5: u32,
+    _pad6: u32,
+}
 ```
 
----
+I also send the materials through a buffer so that multiple triangles can use the same material. When a triangle is hit we access `materials[u32(triangle.a.w)];`. `materials` describe the reflection colour and light emmitance of a triangle. The Material struct also has a reserved `type` attribute that could be used to describe the kind of reflections (only lambertian supported at the time of editing, could include metallic etc.)
 
-## Conclusion
+```wgsl
+// wgsl
+struct Material {
+    // colour of the surface when it reflects light
+    emmission: vec4<f32>, // first 3 f32s is the emmission colour, last is the coefficient (emmission strength)
+    albedo: vec4<f32>,
+    material_type: u32, // metallic or lambertian
+}
 
-todo
+@group(0) @binding(3)
+var<storage, read> materials: array<Material>;
+```
 
----
+Most of the rest of the shader code is just the wgsl equivalent of code written in RTRR or in Sebastian Lague's first video on ray tracing which is linked below.
+
+## The future of this project
+
+This project is not close to done. I'd like to keep working on it and these are the things I would work on next. Please consider forking [the repository](https://github.com/Jake-Purton/webgpu_ray_trace) and adding any of these features. If you do add any then also add a markdown file with a little detail about your journey into coming up with the solution. Contributions to both the tutorial and the project are welcome.
+- recompute each frame
+- add metallic and glass etc materials
+- implement a movable camera
+- modularity of wgsl using string concatenation
+- add BVH for optimisation
 
 ## References
 
 - [Ray Tracing Road to Rust](https://the-ray-tracing-road-to-rust.vercel.app/6-surface-normals-and-multiple-objects)
 - [Sebastian Lague - Coding Adventures: Ray Tracing ](https://www.youtube.com/watch?v=Qz0KTGYJtUk)
-
----
-
-## The future
-
-This project is nowhere close to done. I'd like to keep working on it and these are th things I would work on next. Please consider forking [the repository](https://github.com/Jake-Purton/webgpu_ray_trace) and adding any of these features. If you do add any then also add a markdown file with a little detail about your journey into coming up with the solution.
-- modularity of wgsl using string concatenation
-- add metallic and glass etc materials
-- movable camera
-- recompute each frame
-- add BVH for optimisation
