@@ -2,7 +2,6 @@ use minifb::{Key, Window, WindowOptions};
 use std::f32::INFINITY;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use tobj::{self};
 
 mod sphere;
 mod triangle;
@@ -14,7 +13,9 @@ mod hittable_list;
 mod ray;
 mod vec3;
 mod material;
+mod read_obj;
 
+use read_obj::read_obj_vertices;
 use camera::Camera;
 use colour::Colour;
 use hittable::{HitRecord, Hittable};
@@ -54,54 +55,9 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     (1.0 - t) * Colour::new(1.0, 1.0, 1.0) + t * Colour::new(0.5, 0.7, 1.0)
 }
 
-fn read_obj_vertices(filename: &str) -> Vec<u8> {
-
-    let (models, _) = tobj::load_obj(
-        filename,
-        &tobj::LoadOptions {
-            triangulate: true,
-            single_index: true,
-            ..Default::default()
-        },
-    ).unwrap();
-    
-    let mut triangles: Vec<u8> = Vec::new();
-    let suzanne_offset = -1.5;
-
-    
-    for model in models {
-        let mesh = &model.mesh;
-        let positions = &mesh.positions;
-        let indices = &mesh.indices;
-
-        for i in (0..indices.len()).step_by(3) {
-            let i0 = indices[i] as usize * 3;
-            let i1 = indices[i + 1] as usize * 3;
-            let i2 = indices[i + 2] as usize * 3;
-
-            // f32s to bytes little endian
-
-            // this all represents 1 triangle
-            triangles.extend_from_slice(&positions[i0].to_le_bytes());
-            triangles.extend_from_slice(&positions[i0 + 1].to_le_bytes());
-            triangles.extend_from_slice(&(positions[i0 + 2] + suzanne_offset).to_le_bytes());
-
-            triangles.extend_from_slice(&positions[i1].to_le_bytes());
-            triangles.extend_from_slice(&positions[i1 + 1].to_le_bytes());
-            triangles.extend_from_slice(&(positions[i1 + 2] + suzanne_offset).to_le_bytes());
-
-            triangles.extend_from_slice(&positions[i2].to_le_bytes());
-            triangles.extend_from_slice(&positions[i2 + 1].to_le_bytes());
-            triangles.extend_from_slice(&(positions[i2 + 2] + suzanne_offset).to_le_bytes());
-        }
-    }
-
-    triangles
-}
-
 fn main() {
 
-    let v = read_obj_vertices("suzanne.obj");
+    let triangles = read_obj_vertices("suzanne.obj");
 
     // Create a shared buffer for the pixel data
     let buffer = Arc::new(Mutex::new(vec![0u32; WIDTH * HEIGHT]));
@@ -117,6 +73,12 @@ fn main() {
         100.0,
         material_right,
     )));
+
+    for triangle in triangles {
+        world.add(
+            Box::new(triangle)
+        );
+    }
 
     let world = Arc::new(world);
     // Camera
