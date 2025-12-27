@@ -2,7 +2,9 @@
 
 ## Introduction
 
-In this post, I’ll walk through my journey of extending the [Ray Tracing Road to Rust (RTRR)](https://the-ray-tracing-road-to-rust.vercel.app/6-surface-normals-and-multiple-objects) project. I’ll cover how I added triangle support, imported geometry from OBJ files, and started porting the project to WebGPU. If you havent yet done the RTRR then I recommend starting there. If you want to follow along with me without completing RTRR then clone [this repository]().
+![Final image](final.png)
+
+In this post, I’ll walk through my journey of extending the [Ray Tracing Road to Rust (RTRR)](https://the-ray-tracing-road-to-rust.vercel.app/6-surface-normals-and-multiple-objects) project. I’ll cover how I added triangle support, imported geometry from OBJ files, and started porting the project to WebGPU. If you havent yet done the RTRR then I recommend starting there. If you want to follow along with me without completing RTRR then clone [this branch of the repository (week1)](https://github.com/Jake-Purton/webgpu_ray_trace/tree/week1).
 
 ## Adding Triangles to the CPU Version
 
@@ -130,7 +132,11 @@ for model in models {
 
 ## Preparing for WebGPU
 
-Currently, with ray tracing running on the CPU the simulation is slow even on relatively high end hardware. We can get a huge boost in speed by sending our triangles to the GPU to have the simulation run in paralel there. This will involve sending our triangles in a buffer, implementing a ray tracing shader, and recieving the results as pixels in another buffer before displaying this to the screen.
+Currently, with ray tracing running on the CPU the simulation is slow even on relatively high end hardware. An example that took me 30 seconds to generate:
+
+![Noisy image of lilac monkey on a gold metallic ball](stage1.png)
+
+We can get a huge boost in speed by sending our triangles to the GPU to have the simulation run in paralel there. This will involve sending our triangles in a buffer, implementing a ray tracing shader, and recieving the results as pixels in another buffer before displaying this to the screen.
 
 
 ### Input and Output Buffers

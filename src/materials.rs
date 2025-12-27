@@ -20,29 +20,47 @@ impl Material {
     pub fn list() -> Vec<u8> {
         let mut vec = Vec::new();
 
+        // 0 gray
         vec.extend_from_slice(bytemuck::bytes_of(&Self::new(
             [0.0, 0.0, 0.0, 0.0],
-            [1.0, 1.0, 1.0, 0.0],
+            [0.5, 0.5, 0.5, 0.0],
             1,
         )));
 
+        // 1 red
         vec.extend_from_slice(bytemuck::bytes_of(&Self::new(
             [0.0, 0.0, 0.0, 0.0],
-            [1.0, 0.3, 0.2, 0.0],
-            2,
+            [0.99, 0.2, 0.2, 0.0],
+            1,
         )));
 
+        // 2 blue
         vec.extend_from_slice(bytemuck::bytes_of(&Self::new(
             [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.3, 0.2, 0.0],
-            3,
-        )));
-        vec.extend_from_slice(bytemuck::bytes_of(&Self::new(
-            [0.8, 0.3, 0.6, 0.8],
-            [0.0, 1.0, 1.0, 0.0],
-            4,
+            [0.2, 0.2, 0.99, 0.0],
+            1,
         )));
 
+        // 3 green
+        vec.extend_from_slice(bytemuck::bytes_of(&Self::new(
+            [0.0, 0.0, 0.0, 0.0],
+            [0.2, 0.99, 0.2, 0.0],
+            1,
+        )));
+
+        // 4 white
+        vec.extend_from_slice(bytemuck::bytes_of(&Self::new(
+            [0.0, 0.0, 0.0, 0.0],
+            [0.99, 0.99, 0.99, 0.0],
+            1,
+        )));
+
+        // 5 light
+        vec.extend_from_slice(bytemuck::bytes_of(&Self::new(
+            [0.99, 0.99, 0.99, 1.5],
+            [0.99, 0.99, 0.99, 0.0],
+            1,
+        )));
         return vec;
     }
 }

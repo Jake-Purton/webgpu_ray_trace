@@ -28,8 +28,8 @@ struct Params {
 
 const WIDTH: usize = 1080;
 const HEIGHT: usize = 720;
-const SAMPLES_PER_PIXEL: u32 = 8;
-const MAX_DEPTH: u32 = 4;
+const SAMPLES_PER_PIXEL: u32 = 32;
+const MAX_DEPTH: u32 = 8;
 
 fn main() {
     let v = read_obj_vertices("suzanne.obj");
