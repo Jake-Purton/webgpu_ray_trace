@@ -14,10 +14,6 @@ pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
     let mut triangles: Vec<u8> = Vec::new();
     let suzanne_offset = -2.5;
 
-    // THE TRIANGLES NEED PADDING OF 32 bits each
-    // thats fine
-
-    // DELETE THIS
     triangles.extend_from_slice(&(-4.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
@@ -37,12 +33,11 @@ pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
     triangles.extend_from_slice(&(0.0_f32).to_le_bytes());
 
     //triangle 2 really
-
     triangles.extend_from_slice(&(4.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
     triangles.extend_from_slice(&(-6.0_f32).to_le_bytes());
     // material
-    triangles.extend_from_slice(&(0.0_f32).to_le_bytes());
+    triangles.extend_from_slice(&(1.0_f32).to_le_bytes());
 
     triangles.extend_from_slice(&4.0_f32.to_le_bytes());
     triangles.extend_from_slice(&(-1.0_f32).to_le_bytes());
@@ -57,8 +52,6 @@ pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
     triangles.extend_from_slice(&(1.0_f32).to_le_bytes());
 
     // return triangles;
-
-    // ENDOFDELETETHIS
 
     for model in models {
         let mesh = &model.mesh;
@@ -77,7 +70,7 @@ pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
             triangles.extend_from_slice(&positions[i0 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i0 + 2] + suzanne_offset).to_le_bytes());
             // material
-            triangles.extend_from_slice(&3.0_f32.to_le_bytes());
+            triangles.extend_from_slice(&2.0_f32.to_le_bytes());
 
             triangles.extend_from_slice(&positions[i1].to_le_bytes());
             triangles.extend_from_slice(&positions[i1 + 1].to_le_bytes());

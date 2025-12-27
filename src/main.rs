@@ -28,7 +28,7 @@ struct Params {
 
 const WIDTH: usize = 1080;
 const HEIGHT: usize = 720;
-const SAMPLES_PER_PIXEL: u32 = 2;
+const SAMPLES_PER_PIXEL: u32 = 8;
 const MAX_DEPTH: u32 = 4;
 
 fn main() {

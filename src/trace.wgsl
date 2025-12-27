@@ -191,7 +191,7 @@ fn ray_color_iter(r_in: Ray, max_depth: u32, seed: u32) -> vec3<f32> {
             color *= hr.color;
         } else {
             // background emitted color * emmission_strength
-            let e = vec3(0.99, 0.99, 0.99) * 0.0;
+            let e = vec3(0.99, 0.99, 0.99) * 0.4;
             incoming_light += e * color;
             break;
         }

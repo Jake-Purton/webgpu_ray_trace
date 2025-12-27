@@ -1,2 +1,5 @@
-- modularity using string concatenation
-- add materials pointer with the jankiest setup possible
+- modularity of wgsl using string concatenation
+- add metallic and glass etc materials
+- movable camera
+- recompute each frame
+- add BVH for optimisation
