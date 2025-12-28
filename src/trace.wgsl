@@ -92,7 +92,23 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let scale = 1.0 / f32(params.samples);
 
-    let c = pixel_color * scale;
+    var c = pixel_color * scale;
+
+    if length(c) > 1.0 {
+        c = c / length(c);
+    }
+
+    // if c.x > 1.0 {
+    //     c.x = 1.0;
+    // }
+
+    // if c.y > 1.0 {
+    //     c.y = 1.0;
+    // }
+
+    // if c.z > 1.0 {
+    //     c.z = 1.0;
+    // }
 
     let r: u32 = u32(c.x * 255.0);
     let g: u32 = u32(c.y * 255.0);
@@ -143,7 +159,6 @@ fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
 
     let t = f * dot(edge2.xyz, q);
 
-    // if t < t_min || t > t_max {
     if t < t_min {
         return hr;
     }
@@ -186,6 +201,7 @@ fn ray_color_iter(r_in: Ray, max_depth: u32, seed: u32) -> vec3<f32> {
         if hr.did_hit {
             ray.origin = hr.point;
             ray.direction = random_hemisphere_direction(hr.face_normal, seed+depth);
+
             let emitted_light = hr.emmitted_colour * hr.emmitted_strength;
             incoming_light += emitted_light * color;
             color *= hr.color;
@@ -255,7 +271,7 @@ fn random_double(seed:u32) -> f32 {
 fn get_ray(c: Camera, u: f32, v: f32) -> Ray {
     return Ray(
         c.origin,
-        c.lower_left_corner + u * c.horizontal + v * c.vertical - c.origin,
+        normalize(c.lower_left_corner + u * c.horizontal + v * c.vertical - c.origin),
     );
 }
 

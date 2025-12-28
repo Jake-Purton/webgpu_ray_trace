@@ -57,7 +57,7 @@ impl Material {
 
         // 5 light
         vec.extend_from_slice(bytemuck::bytes_of(&Self::new(
-            [0.99, 0.99, 0.99, 1.5],
+            [0.99, 0.99, 0.99, 0.99],
             [0.99, 0.99, 0.99, 0.0],
             1,
         )));

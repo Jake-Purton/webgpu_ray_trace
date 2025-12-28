@@ -656,7 +656,8 @@ This project is not close to done. I'd like to keep working on it and these are 
 - add metallic and glass etc materials
 - implement a movable camera
 - modularity of wgsl using string concatenation
-- add BVH for optimisation
+- BVH optimisation for collisions
+- denoising
 
 ## References
 
