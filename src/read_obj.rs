@@ -70,19 +70,19 @@ pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
     let suzanne_offset = -2.5;
 
     // floor square
-    triangles.extend_from_slice(&square_to_bytes([-4.0, -1.0, -1.0], [4.0, -1.0, -6.0], 0.0));
+    // triangles.extend_from_slice(&square_to_bytes([-4.0, -1.0, -1.0], [4.0, -1.0, -6.0], 0.0));
 
     // Back wall
-    triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -6.0], [4.0, -1.0, -6.0], 1.0));
+    // triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -6.0], [4.0, -1.0, -6.0], 1.0));
 
     // Left wall
-    triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -1.0], [-4.0, -1.0, -6.0], 2.0));
+    // triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -1.0], [-4.0, -1.0, -6.0], 2.0));
 
     // Right wall
-    triangles.extend_from_slice(&square_to_bytes([4.0, 3.0, -1.0], [4.0, -1.0, -6.0], 3.0));
+    // triangles.extend_from_slice(&square_to_bytes([4.0, 3.0, -1.0], [4.0, -1.0, -6.0], 3.0));
 
     // top
-    triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -1.0], [4.0, 3.0, -6.0], 5.0));
+    // triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -1.0], [4.0, 3.0, -6.0], 5.0));
 
     // return triangles;
 

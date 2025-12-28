@@ -145,9 +145,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 fn get_ray(u: f32, v: f32) -> Ray {
 
-    let origin = vec3<f32>(0.0, 0.0, 10.0);
-    let horizontal = vec3<f32>(2.0, 0.0, 0.0);
-    let vertical = vec3<f32>(0.0, 2.0, 0.0);
+    let aspect_ratio = 16.0 / 9.0;
+
+    let origin = vec3<f32>(0.0, 0.0, 0.0);
+    let viewport_height = 2.0;
+    let viewport_width = aspect_ratio * viewport_height;
+    let horizontal = vec3<f32>(viewport_width, 0.0, 0.0);
+    let vertical = vec3<f32>(0.0, viewport_height, 0.0);
     let focal_length = vec3<f32>(0.0, 0.0, 1.0);
     
     let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - focal_length;
