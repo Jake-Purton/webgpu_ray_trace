@@ -6,7 +6,7 @@
 
 In this post, I’ll walk through my journey of extending the [Ray Tracing Road to Rust (RTRR)](https://the-ray-tracing-road-to-rust.vercel.app/6-surface-normals-and-multiple-objects) project. I’ll cover how I added triangle support, imported geometry from OBJ files, and started porting the project to WebGPU. If you havent yet done the RTRR then I recommend starting there. If you want to follow along with me without completing RTRR then clone [this branch of the repository (week1)](https://github.com/Jake-Purton/webgpu_ray_trace/tree/week1).
 
-## Adding Triangles to the CPU Version
+## Rendering Triangles on the CPU (Stage 1)
 
 RTRR is a fantastic project for beginners learning rust or ray tracing. It focuses mainly on spheres and I wanted to add triangles. The specific working commit on the CPU is [here](https://github.com/Jake-Purton/webgpu_ray_trace/tree/b26dc46eb08a39acbcfbff3ad3bbe284c25d8d4d) in my repository. Please note that my obj file reading wasn't correct at the time but it was close enough to see some triangles.
 
@@ -130,9 +130,9 @@ for model in models {
 ```
 
 
-## Preparing for WebGPU
+## Preparing for WebGPU (Stage 2)
 
-Currently, with ray tracing running on the CPU the simulation is slow even on relatively high end hardware. An example that took me 30 seconds to generate:
+Currently, with ray tracing running on the CPU the simulation is slow even on relatively high end hardware. Here is an example that took me around 30 seconds to generate:
 
 ![Noisy image of lilac monkey on a gold metallic ball](stage1.png)
 
