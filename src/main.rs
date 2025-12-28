@@ -26,10 +26,10 @@ struct Params {
     _pad6: u32,
 }
 
-const WIDTH: usize = 1080;
-const HEIGHT: usize = 720;
-const SAMPLES_PER_PIXEL: u32 = 32;
-const MAX_DEPTH: u32 = 8;
+const WIDTH: usize = 400;
+const HEIGHT: usize = 225;
+const SAMPLES_PER_PIXEL: u32 = 64;
+const MAX_DEPTH: u32 = 3;
 
 fn main() {
     let v = read_obj_vertices("suzanne.obj");

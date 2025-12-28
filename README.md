@@ -4,7 +4,7 @@
 
 ![Final image](final.png)
 
-In this post, I’ll walk through my journey of extending the [Ray Tracing Road to Rust (RTRR)](https://the-ray-tracing-road-to-rust.vercel.app/6-surface-normals-and-multiple-objects) project. I’ll cover how I added triangle support, imported geometry from OBJ files, and started porting the project to WebGPU. If you havent yet done the RTRR then I recommend starting there. If you want to follow along with me without completing RTRR then clone [this branch of the repository (week1)](https://github.com/Jake-Purton/webgpu_ray_trace/tree/week1).
+In this post, I’ll walk through my journey of extending the [Ray Tracing Road to Rust (RTRR)](https://the-ray-tracing-road-to-rust.vercel.app/6-surface-normals-and-multiple-objects) project. I’ll cover how I added triangle support, imported geometry from OBJ files, and started porting the project to WebGPU. If you havent yet done the RTRR then I recommend starting there. If you want to follow along with me without completing RTRR then clone [this branch of the repository (week1)](https://github.com/Jake-Purton/webgpu_ray_trace/tree/stage-1).
 
 ## Rendering Triangles on the CPU (Stage 1)
 
@@ -99,36 +99,60 @@ This implements the tutorial's `Hittable` trait and can therefore be added to wo
 To render real models, I used `tobj` to load triangles from OBJ files. Here is an example loading the file 'suzanne.obj'.
 
 ```rust
-let (models, _) = tobj::load_obj(
-    "suzanne.obj",
-    &tobj::LoadOptions {
-        triangulate: true,
-        single_index: true,
-        ..Default::default()
-    },
-)
-.unwrap();
+pub fn read_obj_vertices(filename: &str) -> Vec<Triangle> {
+    let (models, _) = tobj::load_obj(
+        filename,
+        &tobj::LoadOptions {
+            triangulate: true,
+            single_index: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
-for model in models {
-    let mesh = &model.mesh;
-    let positions = &mesh.positions;
-    let indices = &mesh.indices;
+    let mut triangles: Vec<Triangle> = Vec::new();
+    let suzanne_offset = -2.5;
 
-    for i in (0..indices.len()).step_by(3) {
-        let i0 = indices[i] as usize * 3;
-        let i1 = indices[i + 1] as usize * 3;
-        let i2 = indices[i + 2] as usize * 3;
+    let material = Arc::new(Lambertian::new(Colour::new(0.8, 0.6, 0.8)));
 
-        // the points are in:
-        // positions[i0], positions[i0+1], positions[i0+2]
-        // positions[i1], positions[i1+1], positions[i1+2]
-        // positions[i2], positions[i2+1], positions[i2+2]
-        // and can be turned into Triangle objects and passed into World
+    for model in models {
+        let mesh = &model.mesh;
+        let positions = &mesh.positions;
+        let indices = &mesh.indices;
 
+        for i in (0..indices.len()).step_by(3) {
+            let i0 = indices[i] as usize * 3;
+            let i1 = indices[i + 1] as usize * 3;
+            let i2 = indices[i + 2] as usize * 3;
+
+            triangles.push(Triangle {
+                a: Vec3::new(positions[i0], positions[i0 + 1], positions[i0 + 2] + suzanne_offset),
+                b: Vec3::new(positions[i1], positions[i1 + 1], positions[i1 + 2] + suzanne_offset),
+                c: Vec3::new(positions[i2], positions[i2 + 1], positions[i2 + 2] + suzanne_offset),
+                mat: material.clone()
+            });
+        }
     }
+
+    triangles
 }
 ```
 
+In our main function we can now get all of the triangles and add them to world.
+
+```rust
+let triangles = read_obj_vertices("suzanne.obj");
+
+let mut world = HittableList::new();
+
+for triangle in triangles {
+    world.add(
+        Box::new(triangle)
+    );
+}
+```
+
+This will work with the RTRR implementation out of the box.
 
 ## Preparing for WebGPU (Stage 2)
 
@@ -138,6 +162,11 @@ Currently, with ray tracing running on the CPU the simulation is slow even on re
 
 We can get a huge boost in speed by sending our triangles to the GPU to have the simulation run in paralel there. This will involve sending our triangles in a buffer, implementing a ray tracing shader, and recieving the results as pixels in another buffer before displaying this to the screen.
 
+In stage 2 we will be focusing on how data is passed, and then implementing the collision detection:
+
+![Noisy image of lilac monkey on a gold metallic ball](stage2.png)
+
+The full code is on [this branch](https://github.com/Jake-Purton/webgpu_ray_trace/tree/stage-2).
 
 ### Input and Output Buffers
 
@@ -243,9 +272,331 @@ let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
 });
 ```
 
-I then copy the output buffer into the window so that we can see it.
+in `trace.wgsl` add this code for our first basic shader:
 
-### Camera and Material Buffers
+```wgsl
+struct Triangle {
+    a: vec4<f32>,
+    b: vec4<f32>,
+    c: vec4<f32>,
+}
+
+struct Ray {
+    origin: vec3<f32>,
+    direction: vec3<f32>
+}
+
+struct HitRecord {
+    t: f32,
+    point: vec3<f32>,
+    face_normal: vec3<f32>,
+    color: vec3<f32>,
+    did_hit: bool,
+}
+
+@group(0) @binding(0)
+var<storage, read> input: array<Triangle>;
+
+@group(0) @binding(1)
+var<storage, read_write> output: array<u32>;
+
+fn hit_triangle (r: Ray, t_min: f32, triangle: Triangle) -> HitRecord {
+
+    var hr: HitRecord = HitRecord(
+        0.0,
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        false,
+    );
+
+    let epsilon = 1e-8;
+    let edge1 = triangle.b - triangle.a;
+    let edge2 = triangle.c - triangle.a;
+    let h = cross(r.direction, edge2.xyz);
+    let a = dot(edge1.xyz, h);
+
+    if abs(a) < epsilon {
+        return hr;
+    }
+
+    let f = 1.0 / a;
+    let s = r.origin - triangle.a.xyz;
+    let u = f * dot(s, h);
+
+    if u < 0.0 || u > 1.0 {
+        return hr;
+    }
+
+    let q = cross(s, edge1.xyz);
+    let v = f * dot(r.direction, q);
+
+    if v < 0.0 || u + v > 1.0 {
+        return hr;
+    }
+
+    let t = f * dot(edge2.xyz, q);
+
+    // if t < t_min || t > t_max {
+    if t < t_min {
+        return hr;
+    }
+
+    hr.t = t;
+    hr.point = (r.direction * t) + r.origin;
+
+    let outward_normal = normalize(cross(edge1.xyz, edge2.xyz));
+
+    if dot(r.direction, outward_normal) < 0.0 {
+        hr.face_normal = outward_normal;
+    } else {
+        hr.face_normal = -outward_normal;
+    };
+
+    hr.did_hit = true;
+
+    // choose a colour
+    hr.color = vec3(0.7, 0.8, 0.9);
+
+    return hr;
+}
+
+fn calculate_collisions(ray: Ray) -> HitRecord {
+    var hr: HitRecord = HitRecord(
+        1e30, // large initial t
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 0.0),
+        false,
+    );
+
+    // Find nearest hit
+    for (var i = 0u; i < arrayLength(&input); i = i + 1u) {
+        let triangle = input[i];
+        let hit2 = hit_triangle(ray, 0.001, triangle);
+
+        if (!hr.did_hit) || (hit2.t < hr.t && hit2.did_hit){
+            hr = hit2;
+        }
+    }
+
+    return hr;
+}
+
+// one thread per pixel!
+@compute @workgroup_size(8, 8, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let x = gid.x;
+    let y = gid.y;
+
+    let d = input[0];
+
+    // Guard against extra threads
+    if (x >= 400 || y >= 225) {
+        return;
+    }
+
+    // 1D index into output buffer
+    let index = y * 400 + x;
+
+    // Normalized coordinates [0, 1]
+    let fx = f32(x) / f32(400 - 1u);
+    let fy = f32(225 - 1u - y) / f32(225 - 1u);
+
+    let ray = get_ray(fx, fy);
+    
+    var c = vec3<f32>(0.0, 0.0, 0.0);
+
+    let hr = calculate_collisions(ray);
+
+    if hr.did_hit == true {
+        c = vec3<f32>(1.0, 1.0, 1.0);
+    }
+
+    let r: u32 = u32(c.x * 255.0);
+    let g: u32 = u32(c.y * 255.0);
+    let b: u32 = u32(c.z * 255.0);
+    
+    output[index] = (r << 16u) | (g << 8u) | b;
+}
+
+fn get_ray(u: f32, v: f32) -> Ray {
+
+    let aspect_ratio = 16.0 / 9.0;
+
+    let origin = vec3<f32>(0.0, 0.0, 0.0);
+    let viewport_height = 2.0;
+    let viewport_width = aspect_ratio * viewport_height;
+    let horizontal = vec3<f32>(viewport_width, 0.0, 0.0);
+    let vertical = vec3<f32>(0.0, viewport_height, 0.0);
+    let focal_length = vec3<f32>(0.0, 0.0, 1.0);
+    
+    let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - focal_length;
+
+    return Ray (
+        origin,
+        lower_left_corner + u * horizontal + v * vertical - origin,
+    );
+}
+```
+
+That shader will detect collisions with the triangles, and is the basis for the rest of our project. Back in rust, here is the code used to get the gpu device, setup the bindings, execute the shader, and update the window.
+
+```rust
+fn main() {
+
+    let triangles = read_obj_vertices("suzanne.obj");
+
+    let instance = Instance::new(&InstanceDescriptor {
+        ..Default::default()
+    });
+
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        force_fallback_adapter: false,
+        compatible_surface: None,
+    }));
+
+    let adapter = match adapter {
+        Ok(a) => {
+            println!("Adapter found: {:?}", a.get_info().name);
+            a
+        }
+        Err(_) => {
+            println!("ERROR: No GPU adapter found. WebGPU may not be supported in this browser.");
+            return;
+        }
+    };
+
+    let (device, queue) =
+        match pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())) {
+            Ok(a) => a,
+            Err(e) => {
+                println!("{e}");
+                return;
+            }
+        };
+
+    let input_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        label: Some("Input Buffer"),
+        contents: &triangles,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::VERTEX,
+    });
+
+
+    let output_size = (WIDTH * HEIGHT) * std::mem::size_of::<u32>();
+
+    // output buffer in gpu memory
+    let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Output Buffer"),
+        size: output_size as u64,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+
+    // read the output into cpu memory
+    let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Staging Buffer"),
+        size: output_size as u64,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Tracing Shader"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("trace.wgsl").into()),
+    });
+
+    let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("Compute Pipeline"),
+        layout: None,
+        module: &shader,
+        entry_point: Some("main"),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
+    });
+
+    let bind_group_layout = compute_pipeline.get_bind_group_layout(0);
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: output_buffer.as_entire_binding(),
+            },
+        ],
+        label: Some("Bind Group"),
+    });
+
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("Compute Encoder"),
+    });
+
+    {
+        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Compute Pass"),
+            timestamp_writes: None,
+        });
+        cpass.set_pipeline(&compute_pipeline);
+        cpass.set_bind_group(0, &bind_group, &[]);
+
+        cpass.dispatch_workgroups(
+            ((WIDTH + 7) / 8).try_into().unwrap(),
+            ((HEIGHT + 7) / 8).try_into().unwrap(),
+            1,
+        ); // example workgroup
+    }
+
+    encoder.copy_buffer_to_buffer(
+        &output_buffer,
+        0,
+        &staging_buffer,
+        0,
+        Some(output_size as u64),
+    );
+
+    queue.submit(Some(encoder.finish()));
+
+    let buffer_slice = staging_buffer.slice(..);
+    buffer_slice.map_async(wgpu::MapMode::Read, |_| {});
+    device
+        .poll(wgpu::PollType::wait_indefinitely())
+        .expect("hello");
+
+    let data = buffer_slice.get_mapped_range();
+    let result: &[u32] = bytemuck::cast_slice(&data);
+
+
+    // Create the window
+    let mut window = Window::new(
+        "Rustracer",
+        WIDTH,
+        HEIGHT,
+        WindowOptions::default(),
+    )
+    .unwrap_or_else(|e| {
+        panic!("{}", e);
+    });
+
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        window.update_with_buffer(&result, WIDTH, HEIGHT).unwrap();
+    }
+}
+```
+
+## Bouncing Rays (Stage 3)
+
+
+
+## Materials and the Camera (Stage 4)
+
+The code for stage 4 is in [this branch](https://github.com/Jake-Purton/webgpu_ray_trace/tree/stage-4). At the end of this stage you'll be able to render this:
+
+![Monkey with many materials](stage4.png)
 
 The camera works a similar way to how it does in the tutorial.
 ```rust
