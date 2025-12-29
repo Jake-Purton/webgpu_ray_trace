@@ -8,7 +8,6 @@ pub fn square_to_bytes(a: [f32; 3], b: [f32; 3], material: f32) -> Vec<u8> {
     // Determine which axis is constant (the two input points must differ in exactly two axes)
     let dx = (a[0] - b[0]).abs();
     let dy = (a[1] - b[1]).abs();
-    let dz = (a[2] - b[2]).abs();
 
     let (v0, v1, v2, v3) = if dx < 1e-6 {
         // x is constant, square in YZ plane
