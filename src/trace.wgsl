@@ -128,13 +128,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let ray = get_ray(fx, fy);
     
-    var c = vec3<f32>(0.0, 0.0, 0.0);
+    let seed = make_seed(x, y, 0u);
 
-    let hr = calculate_collisions(ray);
-
-    if hr.did_hit == true {
-        c = vec3<f32>(1.0, 1.0, 1.0);
-    }
+    var c = ray_color_iter(ray, 4u, seed);
 
     let r: u32 = u32(c.x * 255.0);
     let g: u32 = u32(c.y * 255.0);
@@ -160,4 +156,76 @@ fn get_ray(u: f32, v: f32) -> Ray {
         origin,
         lower_left_corner + u * horizontal + v * vertical - origin,
     );
+}
+
+fn random_hemisphere_direction(normal: vec3<f32>, seed: u32) -> vec3<f32> {
+    let z = random_float(seed) * 2.0 - 1.0;
+    let a = random_float(seed + 1u) * 6.28318530718;
+    let r = sqrt(max(0.0, 1.0 - z * z));
+    let v = vec3<f32>(
+        r * cos(a), 
+        r * sin(a),
+        z
+    );
+
+    if dot(v, normal) < 0 {
+        return -v;
+    } else {
+        return v;
+    }
+}
+
+fn random_float(seed:u32) -> f32 {
+
+    let a = hash_u32(seed);
+
+    let fa = f32(a);
+
+    return (fa)* (1.0 / 4294967296.0);
+}
+
+fn hash_u32(seed: u32) -> u32 {
+    var v = seed;
+    v = v * 747796405u + 2891336453u;
+    v = ((v >> ((v >> 28u) + 4u)) ^ v) * 277803737u;
+    v = (v >> 22u) ^ v;
+    return v;
+}
+
+fn make_seed(x: u32, y: u32, sample: u32) -> u32 {
+    var s = x * 1973u + y * 9277u + sample * 26699u;
+    return hash_u32(s);
+}
+
+fn ray_color_iter(r_in: Ray, max_depth: u32, seed: u32) -> vec3<f32> {
+    var incoming_light = vec3<f32>(0.0, 0.0, 0.0);
+    var color = vec3<f32>(1.0, 1.0, 1.0); // accumulated color
+    var ray = r_in;
+    var depth = max_depth;
+
+    loop {
+        if depth == 0u {
+            break;
+        }
+
+        let hr = calculate_collisions(ray);
+
+        if hr.did_hit {
+            ray.origin = hr.point;
+            ray.direction = random_hemisphere_direction(hr.face_normal, seed+depth);
+
+            // let emitted_light = hr.emmitted_colour * hr.emmitted_strength;
+            // incoming_light += emitted_light * color;
+            color *= hr.color;
+        } else {
+            // background emitted color * emmission_strength
+            let e = vec3(0.88, 0.88, 0.99) * .99;
+            incoming_light += e * color;
+            break;
+        }
+
+        depth = depth - 1u;
+    }
+
+    return incoming_light;
 }
