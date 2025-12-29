@@ -590,7 +590,9 @@ fn main() {
 
 ## Bouncing Rays (Stage 3)
 
-[stage 3 code](). Now we can start bouncing rays around. All of this logic is the same as in RTRR, just made to fit wgsl. The main differences are randomness, and recursion.
+[Stage 3 code](https://github.com/Jake-Purton/webgpu_ray_trace/tree/stage-3). Now we can start bouncing rays around. All of this logic is the same as in RTRR, just with some workarounds made to fit wgsl. The main differences are randomness, and recursion. At the end of this part of the tutorial you'll have something that looks like this:
+
+![Monkey on a blue sky](stage3.png)
 
 ### Randomness
 
@@ -648,7 +650,32 @@ fn make_seed(x: u32, y: u32, sample: u32) -> u32 {
 }
 ```
 
-The next section will rely on our implementation of randomness.
+If you output just the seed generated like so: 
+
+```wgsl
+@compute @workgroup_size(8, 8, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let x = gid.x;
+    let y = gid.y;
+
+    let d = input[0];
+
+    // Guard against extra threads
+    if (x >= 400 || y >= 225) {
+        return;
+    }
+
+    // 1D index into output buffer
+    let index = y * 400 + x;
+    
+    let seed = make_seed(x, y, 0u);
+
+    output[index] = seed;
+}
+```
+
+You will see random noisy fuzz:
+![Noisy randomness](random.png)
 
 ### Colour Ray
 
@@ -767,8 +794,6 @@ struct Material {
 @group(0) @binding(3)
 var<storage, read> materials: array<Material>;
 ```
-
-Most of the rest of the shader code is just the wgsl equivalent of code written in RTRR or in Sebastian Lague's first video on ray tracing which is linked below.
 
 ## The future of this project
 
