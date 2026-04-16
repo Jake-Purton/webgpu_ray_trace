@@ -36,7 +36,7 @@ struct Params {
     camera: Camera,
     depth: u32,
     samples: u32,
-    pad3: u32,
+    frame: u32,
     pad4: u32,
 };
 
@@ -82,7 +82,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var pixel_color = vec3(0.0, 0.0, 0.0);
 
     for (var s: u32 = 0; s<params.samples; s++) {
-        let seed = make_seed(x, y, s);
+        let seed = make_seed(x, y, s, params.frame);
 
         let fx = (f32(x) + random_double(seed)) / f32(params.width - 1u);
         let fy = (f32(params.height - 1u - y) + random_double(seed + 1)) / f32(params.height - 1u);
@@ -284,7 +284,7 @@ fn hash_u32(seed: u32) -> u32 {
     return v;
 }
 
-fn make_seed(x: u32, y: u32, sample: u32) -> u32 {
-    var s = x * 1973u + y * 9277u + sample * 26699u;
+fn make_seed(x: u32, y: u32, sample: u32, frame: u32) -> u32 {
+    var s = x * 1973u + y * 9277u + sample * 26699u + frame * 31847u;
     return hash_u32(s);
 }

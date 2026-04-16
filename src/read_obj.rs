@@ -69,20 +69,54 @@ pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
     let mut triangles: Vec<u8> = Vec::new();
     let suzanne_offset = -2.5;
 
-    // floor square
-    triangles.extend_from_slice(&square_to_bytes([-4.0, -1.0, -1.0], [4.0, -1.0, -6.0], 0.0));
+    let room_min_x = -4.0;
+    let room_max_x = 4.0;
+    let room_floor_y = -1.0;
+    let room_ceiling_y = 3.0;
+    let room_back_z = -6.0;
+    let room_front_z = 2.0;
 
-    // Back wall
-    triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -6.0], [4.0, -1.0, -6.0], 1.0));
+    // floor square
+    triangles.extend_from_slice(&square_to_bytes(
+        [room_min_x, room_floor_y, room_front_z],
+        [room_max_x, room_floor_y, room_back_z],
+        0.0,
+    ));
+
+    // Back wall (far side)
+    triangles.extend_from_slice(&square_to_bytes(
+        [room_min_x, room_ceiling_y, room_back_z],
+        [room_max_x, room_floor_y, room_back_z],
+        1.0,
+    ));
+
+    // Front wall (camera side)
+    triangles.extend_from_slice(&square_to_bytes(
+        [room_min_x, room_ceiling_y, room_front_z],
+        [room_max_x, room_floor_y, room_front_z],
+        0.0,
+    ));
 
     // Left wall
-    triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -1.0], [-4.0, -1.0, -6.0], 2.0));
+    triangles.extend_from_slice(&square_to_bytes(
+        [room_min_x, room_ceiling_y, room_front_z],
+        [room_min_x, room_floor_y, room_back_z],
+        2.0,
+    ));
 
     // Right wall
-    triangles.extend_from_slice(&square_to_bytes([4.0, 3.0, -1.0], [4.0, -1.0, -6.0], 3.0));
+    triangles.extend_from_slice(&square_to_bytes(
+        [room_max_x, room_ceiling_y, room_front_z],
+        [room_max_x, room_floor_y, room_back_z],
+        3.0,
+    ));
 
     // top
-    triangles.extend_from_slice(&square_to_bytes([-4.0, 3.0, -1.0], [4.0, 3.0, -6.0], 5.0));
+    triangles.extend_from_slice(&square_to_bytes(
+        [room_min_x, room_ceiling_y, room_front_z],
+        [room_max_x, room_ceiling_y, room_back_z],
+        5.0,
+    ));
 
     // return triangles;
 
