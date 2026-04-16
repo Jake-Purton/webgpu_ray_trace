@@ -1,3 +1,5 @@
+#[cfg(target_arch = "wasm32")]
+use std::io::BufReader;
 use tobj::{self};
 
 pub fn square_to_bytes(a: [f32; 3], b: [f32; 3], material: f32) -> Vec<u8> {
@@ -5,12 +7,10 @@ pub fn square_to_bytes(a: [f32; 3], b: [f32; 3], material: f32) -> Vec<u8> {
     let (min_y, max_y) = if a[1] < b[1] { (a[1], b[1]) } else { (b[1], a[1]) };
     let (min_z, max_z) = if a[2] < b[2] { (a[2], b[2]) } else { (b[2], a[2]) };
 
-    // Determine which axis is constant (the two input points must differ in exactly two axes)
     let dx = (a[0] - b[0]).abs();
     let dy = (a[1] - b[1]).abs();
 
     let (v0, v1, v2, v3) = if dx < 1e-6 {
-        // x is constant, square in YZ plane
         (
             [a[0], min_y, min_z],
             [a[0], max_y, min_z],
@@ -18,7 +18,6 @@ pub fn square_to_bytes(a: [f32; 3], b: [f32; 3], material: f32) -> Vec<u8> {
             [a[0], min_y, max_z],
         )
     } else if dy < 1e-6 {
-        // y is constant, square in XZ plane
         (
             [min_x, a[1], min_z],
             [max_x, a[1], min_z],
@@ -26,7 +25,6 @@ pub fn square_to_bytes(a: [f32; 3], b: [f32; 3], material: f32) -> Vec<u8> {
             [min_x, a[1], max_z],
         )
     } else {
-        // z is constant, square in XY plane
         (
             [min_x, min_y, a[2]],
             [max_x, min_y, a[2]],
@@ -37,14 +35,13 @@ pub fn square_to_bytes(a: [f32; 3], b: [f32; 3], material: f32) -> Vec<u8> {
 
     let mut bytes = Vec::new();
 
-    // Triangle 1: v0, v1, v2
     for v in [v0, v1, v2] {
         bytes.extend_from_slice(&v[0].to_le_bytes());
         bytes.extend_from_slice(&v[1].to_le_bytes());
         bytes.extend_from_slice(&v[2].to_le_bytes());
         bytes.extend_from_slice(&material.to_le_bytes());
     }
-    // Triangle 2: v0, v2, v3
+
     for v in [v0, v2, v3] {
         bytes.extend_from_slice(&v[0].to_le_bytes());
         bytes.extend_from_slice(&v[1].to_le_bytes());
@@ -55,17 +52,32 @@ pub fn square_to_bytes(a: [f32; 3], b: [f32; 3], material: f32) -> Vec<u8> {
     bytes
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
-    let (models, _) = tobj::load_obj(
-        filename,
-        &tobj::LoadOptions {
-            triangulate: true,
-            single_index: true,
-            ..Default::default()
-        },
-    )
+    let (models, _) = tobj::load_obj(filename, &obj_load_options()).unwrap();
+    build_scene_from_models(models)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn read_obj_vertices_from_bytes(obj_bytes: &[u8]) -> Vec<u8> {
+    let mut reader = BufReader::new(obj_bytes);
+    let (models, _) = tobj::load_obj_buf(&mut reader, &obj_load_options(), |_| {
+        Ok((Vec::new(), Default::default()))
+    })
     .unwrap();
 
+    build_scene_from_models(models)
+}
+
+fn obj_load_options() -> tobj::LoadOptions {
+    tobj::LoadOptions {
+        triangulate: true,
+        single_index: true,
+        ..Default::default()
+    }
+}
+
+fn build_scene_from_models(models: Vec<tobj::Model>) -> Vec<u8> {
     let mut triangles: Vec<u8> = Vec::new();
     let suzanne_offset = -2.5;
 
@@ -76,49 +88,41 @@ pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
     let room_back_z = -6.0;
     let room_front_z = 2.0;
 
-    // floor square
     triangles.extend_from_slice(&square_to_bytes(
         [room_min_x, room_floor_y, room_front_z],
         [room_max_x, room_floor_y, room_back_z],
         0.0,
     ));
 
-    // Back wall (far side)
     triangles.extend_from_slice(&square_to_bytes(
         [room_min_x, room_ceiling_y, room_back_z],
         [room_max_x, room_floor_y, room_back_z],
         1.0,
     ));
 
-    // Front wall (camera side)
     triangles.extend_from_slice(&square_to_bytes(
         [room_min_x, room_ceiling_y, room_front_z],
         [room_max_x, room_floor_y, room_front_z],
         0.0,
     ));
 
-    // Left wall
     triangles.extend_from_slice(&square_to_bytes(
         [room_min_x, room_ceiling_y, room_front_z],
         [room_min_x, room_floor_y, room_back_z],
         2.0,
     ));
 
-    // Right wall
     triangles.extend_from_slice(&square_to_bytes(
         [room_max_x, room_ceiling_y, room_front_z],
         [room_max_x, room_floor_y, room_back_z],
         3.0,
     ));
 
-    // top
     triangles.extend_from_slice(&square_to_bytes(
         [room_min_x, room_ceiling_y, room_front_z],
         [room_max_x, room_ceiling_y, room_back_z],
         5.0,
     ));
-
-    // return triangles;
 
     for model in models {
         let mesh = &model.mesh;
@@ -130,13 +134,9 @@ pub fn read_obj_vertices(filename: &str) -> Vec<u8> {
             let i1 = indices[i + 1] as usize * 3;
             let i2 = indices[i + 2] as usize * 3;
 
-            // f32s to bytes little endian
-
-            // this all represents 1 triangle
             triangles.extend_from_slice(&positions[i0].to_le_bytes());
             triangles.extend_from_slice(&positions[i0 + 1].to_le_bytes());
             triangles.extend_from_slice(&(positions[i0 + 2] + suzanne_offset).to_le_bytes());
-            // material
             triangles.extend_from_slice(&4.0_f32.to_le_bytes());
 
             triangles.extend_from_slice(&positions[i1].to_le_bytes());

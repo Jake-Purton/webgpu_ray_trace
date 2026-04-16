@@ -1,5 +1,31 @@
 # Porting Ray Tracing to Rust and WebGPU
 
+## WebAssembly Frontend (Simple Canvas Path)
+
+This repository now includes a standalone wasm frontend under [web/index.html](web/index.html) and [web/main.js](web/main.js). It does not use the desktop windowing frontend.
+
+### 1. Install tools
+
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli
+
+### 2. Build wasm output
+
+cargo build --release --target wasm32-unknown-unknown --lib
+wasm-bindgen --target web --out-dir web/pkg target/wasm32-unknown-unknown/release/ray_tracer.wasm
+
+### 3. Serve the web folder
+
+python3 -m http.server 8080
+
+Open this page in your browser:
+
+http://localhost:8080/web/
+
+### 4. Development cycle
+
+Repeat step 2 after each Rust change, then refresh the browser page.
+
 ## Introduction
 
 ![Final image](final.png)
